@@ -23,21 +23,28 @@ export class ConnectionTreeItem extends vscode.TreeItem {
     } else if (itemType === 'SCHEMA') {
       this.iconPath = new vscode.ThemeIcon('symbol-namespace');
       this.description = 'Schema';
+      this.contextValue = 'schemaItem';
     } else if (itemType === 'CATEGORY') {
       this.iconPath = new vscode.ThemeIcon('folder');
+      this.contextValue = 'categoryItem';
     } else if (itemType === 'PACKAGE') {
       this.iconPath = new vscode.ThemeIcon('archive');
+      this.contextValue = 'packageItem';
     } else if (itemType === 'PROCEDURE') {
       this.iconPath = new vscode.ThemeIcon('symbol-event');
+      this.contextValue = 'procedureItem';
     } else if (itemType === 'FUNCTION') {
       this.iconPath = new vscode.ThemeIcon('symbol-method');
+      this.contextValue = 'functionItem';
     } else if (itemType === 'TABLE') {
       this.iconPath = new vscode.ThemeIcon('symbol-property');
       this.contextValue = 'tableItem';
     } else if (itemType === 'VIEW') {
       this.iconPath = new vscode.ThemeIcon('preview');
+      this.contextValue = 'viewItem';
     } else if (itemType === 'SEQUENCE') {
       this.iconPath = new vscode.ThemeIcon('symbol-numeric');
+      this.contextValue = 'sequenceItem';
     } else if (itemType === 'REPORT') {
       this.iconPath = new vscode.ThemeIcon('graph');
       this.contextValue = 'reportItem';
@@ -86,7 +93,6 @@ export class ConnectionTreeProvider implements vscode.TreeDataProvider<Connectio
         return [new ConnectionTreeItem('Click Plug icon to connect first', vscode.TreeItemCollapsibleState.None, 'CATEGORY')];
       }
 
-      // 第一层：根据当前连接获取 Schemas 列表
       const schemas = await dbManager.getSchemas();
       return schemas.map(s =>
         new ConnectionTreeItem(
@@ -101,7 +107,6 @@ export class ConnectionTreeProvider implements vscode.TreeDataProvider<Connectio
 
     if (element.itemType === 'SCHEMA' && element.connection) {
       const schemaName = element.extra?.schemaName || 'public';
-      // 第二层：展开 Schema 展示专属对象目录
       return [
         new ConnectionTreeItem('Packages (PL/iSQL)', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { schemaName, category: 'PACKAGES' }),
         new ConnectionTreeItem('Procedures (存储过程)', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { schemaName, category: 'PROCEDURES' }),

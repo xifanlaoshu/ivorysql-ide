@@ -215,12 +215,17 @@
         },
         {
           "command": "ivorysql.selectTop100",
-          "when": "view == ivorysql-connections",
+          "when": "view == ivorysql-connections && (viewItem == tableItem || viewItem == viewItem)",
           "group": "1_actions"
         },
         {
           "command": "ivorysql.viewTableDdl",
-          "when": "view == ivorysql-connections",
+          "when": "view == ivorysql-connections && (viewItem == tableItem || viewItem == viewItem)",
+          "group": "1_actions"
+        },
+        {
+          "command": "ivorysql.viewTableDdl",
+          "when": "view == ivorysql-connections && (viewItem == packageItem || viewItem == procedureItem || viewItem == functionItem)",
           "group": "1_actions"
         }
       ]
