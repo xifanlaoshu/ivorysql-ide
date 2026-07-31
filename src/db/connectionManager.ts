@@ -137,19 +137,17 @@ export class IvoryDbManager {
   public async getSchemaPackages(schemaName: string): Promise<string[]> {
     if (!this.pool) return [];
     try {
-      // 100% 不限条件全局抓取所有的 Package 名称，确保绝不漏掉任何包
+      // 使用所有 PostgreSQL / IvorySQL 版本均绝对存在的 100% 稳妥字典查询 (排除不存在的 sys_package)
       const sql = `
         SELECT DISTINCT upper(name) AS name FROM (
           SELECT name FROM all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
           UNION ALL
           SELECT name FROM user_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
           UNION ALL
-          SELECT pkgname AS name FROM sys_package
-          UNION ALL
           SELECT p.proname AS name 
           FROM pg_proc p 
           JOIN pg_namespace n ON p.pronamespace = n.oid 
-          WHERE p.prokind IN ('k', 'b', 'f', 'p')
+          WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname != 'information_schema'
         ) combined_pkgs WHERE name IS NOT NULL AND upper(name) NOT LIKE 'PG_%' AND upper(name) NOT LIKE 'SYS_%' ORDER BY name
       `;
       const res = await this.query(sql);

@@ -188,8 +188,6 @@ export function activate(context: vscode.ExtensionContext) {
         UNION ALL
         SELECT 'user_source' AS catalog_table, name, type, '' AS owner FROM user_source WHERE upper(name) LIKE '%EMP%'
         UNION ALL
-        SELECT 'sys_package' AS catalog_table, pkgname AS name, 'PACKAGE' AS type, '' AS owner FROM sys_package WHERE upper(pkgname) LIKE '%EMP%'
-        UNION ALL
         SELECT 'pg_proc' AS catalog_table, proname AS name, prokind::text AS type, nspname AS owner 
         FROM pg_proc 
         JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid 
