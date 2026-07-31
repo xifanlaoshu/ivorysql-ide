@@ -20,6 +20,23 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ivorysql-explorer",
+          "title": "IvorySQL PL/iSQL IDE",
+          "icon": "$(database)"
+        }
+      ]
+    },
+    "views": {
+      "ivorysql-explorer": [
+        {
+          "id": "ivorysql-connections",
+          "name": "Database Connections"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "plisql",
@@ -52,6 +69,26 @@
         "category": "IvorySQL"
       },
       {
+        "command": "ivorysql.addConnection",
+        "title": "Add Database Connection",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ivorysql.refreshConnections",
+        "title": "Refresh Connections",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ivorysql.deleteConnection",
+        "title": "Delete Connection",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "ivorysql.connectSelected",
+        "title": "Connect to Database",
+        "icon": "$(plug)"
+      },
+      {
         "command": "ivorysql.disconnect",
         "title": "IvorySQL: Disconnect from Database",
         "category": "IvorySQL"
@@ -72,6 +109,32 @@
         "category": "IvorySQL"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "ivorysql.addConnection",
+          "when": "view == ivorysql-connections",
+          "group": "navigation"
+        },
+        {
+          "command": "ivorysql.refreshConnections",
+          "when": "view == ivorysql-connections",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "ivorysql.connectSelected",
+          "when": "view == ivorysql-connections && viewItem == connectionItem",
+          "group": "inline"
+        },
+        {
+          "command": "ivorysql.deleteConnection",
+          "when": "view == ivorysql-connections && viewItem == connectionItem",
+          "group": "inline"
+        }
+      ]
+    },
     "keybindings": [
       {
         "command": "ivorysql.switchHeaderBody",

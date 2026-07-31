@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import { IvoryDbManager } from './db/connectionManager';
 import { GitDbSyncManager } from './versionControl/syncManager';
 import { PlIsqlCompletionItemProvider } from './lsp/completionProvider';
+import { ConnectionStore } from './db/connectionStore';
+import { ConnectionTreeProvider, ConnectionTreeItem } from './views/connectionTreeView';
 
 let diagnosticsCollection: vscode.DiagnosticCollection;
 
@@ -14,29 +16,75 @@ export function activate(context: vscode.ExtensionContext) {
   const syncManager = new GitDbSyncManager(workspacePath);
   diagnosticsCollection = vscode.languages.createDiagnosticCollection('plisql');
 
-  // 1. 注册连接数据库命令
-  const connectCmd = vscode.commands.registerCommand('ivorysql.connect', async () => {
-    const config = vscode.workspace.getConfiguration('ivorysql.connection');
-    const host = await vscode.window.showInputBox({ prompt: 'IvorySQL Host', value: config.get('host', 'localhost') });
+  // 连接存储器与侧边栏 TreeView 注册
+  const connectionStore = new ConnectionStore(context);
+  const treeProvider = new ConnectionTreeProvider(connectionStore);
+  vscode.window.registerTreeDataProvider('ivorysql-connections', treeProvider);
+
+  // 1. 动态添加连接命令
+  const addConnCmd = vscode.commands.registerCommand('ivorysql.addConnection', async () => {
+    const name = await vscode.window.showInputBox({ prompt: 'Connection Name (e.g. Local Dev / QA DB)', value: 'Local IvorySQL' });
+    if (!name) return;
+    const host = await vscode.window.showInputBox({ prompt: 'IvorySQL Host', value: 'localhost' });
     if (!host) return;
-    const portStr = await vscode.window.showInputBox({ prompt: 'IvorySQL Port', value: String(config.get('port', 5432)) });
+    const portStr = await vscode.window.showInputBox({ prompt: 'IvorySQL Port', value: '5432' });
     if (!portStr) return;
-    const database = await vscode.window.showInputBox({ prompt: 'Database Name', value: config.get('database', 'ivorysql') });
+    const database = await vscode.window.showInputBox({ prompt: 'Database Name', value: 'ivorysql' });
     if (!database) return;
-    const user = await vscode.window.showInputBox({ prompt: 'Database User', value: config.get('user', 'ivorysql') });
+    const user = await vscode.window.showInputBox({ prompt: 'Database User', value: 'ivorysql' });
     if (!user) return;
     const password = await vscode.window.showInputBox({ prompt: 'Database Password', password: true });
 
-    await IvoryDbManager.getInstance().connect({
+    await connectionStore.saveConnection({
+      name,
       host,
       port: parseInt(portStr, 10),
       database,
       user,
       password: password || ''
     });
+
+    treeProvider.refresh();
+    vscode.window.showInformationMessage(`Saved connection: ${name}`);
   });
 
-  // 2. 注册 Package Header 与 Body 双向一键切换快捷键 (Alt + O)
+  // 2. 连接选中的数据库环境
+  const connectSelectedCmd = vscode.commands.registerCommand('ivorysql.connectSelected', async (item?: ConnectionTreeItem) => {
+    const targetConn = item?.connection || connectionStore.getCurrentConnection();
+    if (!targetConn) {
+      vscode.window.showWarningMessage('Please select a database connection first.');
+      return;
+    }
+
+    const success = await IvoryDbManager.getInstance().connect({
+      host: targetConn.host,
+      port: targetConn.port,
+      database: targetConn.database,
+      user: targetConn.user,
+      password: targetConn.password || ''
+    });
+
+    if (success) {
+      await connectionStore.setCurrentConnection(targetConn.id);
+      treeProvider.refresh();
+    }
+  });
+
+  // 3. 删除连接命令
+  const deleteConnCmd = vscode.commands.registerCommand('ivorysql.deleteConnection', async (item?: ConnectionTreeItem) => {
+    if (item && item.connection) {
+      await connectionStore.deleteConnection(item.connection.id);
+      treeProvider.refresh();
+      vscode.window.showInformationMessage(`Deleted connection: ${item.connection.name}`);
+    }
+  });
+
+  // 4. 刷新面板命令
+  const refreshTreeCmd = vscode.commands.registerCommand('ivorysql.refreshConnections', () => {
+    treeProvider.refresh();
+  });
+
+  // 5. 快捷键 Alt+O 切换 Package Header / Body
   const switchCmd = vscode.commands.registerCommand('ivorysql.switchHeaderBody', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
@@ -65,7 +113,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 3. 注册 Git-First 部署与编译命令 (F8)
+  // 6. Git-First 部署与编译命令 (F8)
   const deployCmd = vscode.commands.registerCommand('ivorysql.deployToDb', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -81,7 +129,7 @@ export function activate(context: vscode.ExtensionContext) {
     const objectType = match ? (match[1].toUpperCase() as any) : 'PACKAGE';
     const objectName = match ? match[2] : path.basename(document.fileName, path.extname(document.fileName));
 
-    // A. 校验与 DB 的 Diff，防止覆盖不一致的代码 (Lock Check)
+    // A. 校验与 DB 的 Diff，防止覆盖不一致的代码
     const syncStatus = await syncManager.verifySyncState(document, objectName, objectType);
     if (!syncStatus.isSynced) {
       vscode.window.showErrorMessage(syncStatus.reason || 'Database and Local Git code drift detected!');
@@ -98,7 +146,7 @@ export function activate(context: vscode.ExtensionContext) {
     // C. 执行数据库编译
     const dbManager = IvoryDbManager.getInstance();
     if (!dbManager.isConnected()) {
-      vscode.window.showErrorMessage('未连接到 IvorySQL 数据库！请先运行 "IvorySQL: Connect to Database"');
+      vscode.window.showErrorMessage('未连接到 IvorySQL 数据库！请在左侧 IvorySQL 侧边栏面板中选择并连接数据库。');
       return;
     }
 
@@ -107,7 +155,6 @@ export function activate(context: vscode.ExtensionContext) {
       await dbManager.query(content);
       vscode.window.showInformationMessage(`[IvorySQL] 成功编译并部署 ${objectType} "${objectName}" 到数据库！`);
     } catch (err: any) {
-      // 提取编译错误位置并展示 Diagnostics 标红
       const lineMatch = err.message.match(/LINE\s+(\d+):/i) || err.message.match(/at line (\d+)/i);
       const lineNum = lineMatch ? Math.max(0, parseInt(lineMatch[1], 10) - 1) : 0;
 
@@ -122,14 +169,23 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 4. 注册动态 Intellisense 智能补全器 (针对 plisql 语言)
+  // 7. 注册动态 Intellisense 智能补全器
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     'plisql',
     new PlIsqlCompletionItemProvider(),
-    '.' // 绑定点号触发
+    '.'
   );
 
-  context.subscriptions.push(connectCmd, switchCmd, deployCmd, completionProvider, diagnosticsCollection);
+  context.subscriptions.push(
+    addConnCmd,
+    connectSelectedCmd,
+    deleteConnCmd,
+    refreshTreeCmd,
+    switchCmd,
+    deployCmd,
+    completionProvider,
+    diagnosticsCollection
+  );
 }
 
 export function deactivate() {
