@@ -412,9 +412,10 @@ END;
     try {
       const startTime = Date.now();
       
-      // 开启与清空 DBMS_OUTPUT 调试缓冲区
+      // 静默开启 Oracle 兼容模式与 DBMS_OUTPUT 调试缓冲区（如果支持）
       try {
-        await dbManager.query("CALL dbms_output.enable(1000000);");
+        await dbManager.query("SET ivorysql.compatible_mode = 'oracle'");
+        await dbManager.query("CALL sys.dbms_output.enable(1000000)");
       } catch (e) {}
 
       const res = await dbManager.query(sql);
