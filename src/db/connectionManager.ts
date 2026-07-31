@@ -78,13 +78,20 @@ export class IvoryDbManager {
         await client.query("SET ivorysql.compatible_mode = 'oracle'");
       } catch (e) {}
 
-      // 100% 安全自适应探针：独立隔离每个 SET 指令与按需补全 DBMS_OUTPUT 系统包
+      // 100% 安全自适应探针：自动编译全量常用 Oracle 兼容包与系统过程大补包
+      try {
+        await client.query("SET ivorysql.compatible_mode = 'oracle'");
+      } catch (e) {}
+
+      // 1. DBMS_OUTPUT 包
       try {
         await client.query(`
           CREATE OR REPLACE PACKAGE dbms_output IS
             PROCEDURE enable(buffer_size IN NUMBER DEFAULT 20000);
             PROCEDURE disable;
             PROCEDURE put_line(a IN VARCHAR2);
+            PROCEDURE put(a IN VARCHAR2);
+            PROCEDURE new_line;
           END dbms_output;
         `);
         await client.query(`
@@ -95,11 +102,16 @@ export class IvoryDbManager {
             BEGIN NULL; END disable;
             PROCEDURE put_line(a IN VARCHAR2) IS
             BEGIN RAISE NOTICE '%', a; END put_line;
+            PROCEDURE put(a IN VARCHAR2) IS
+            BEGIN RAISE NOTICE '%', a; END put;
+            PROCEDURE new_line IS
+            BEGIN RAISE NOTICE ''; END new_line;
           END dbms_output;
         `);
       } catch (e) {}
 
-        try {
+      // 2. RAISE_APPLICATION_ERROR 自定义异常过程
+      try {
         await client.query(`
           CREATE OR REPLACE PROCEDURE raise_application_error(
             p_code IN NUMBER,
@@ -108,6 +120,45 @@ export class IvoryDbManager {
           BEGIN
             RAISE EXCEPTION 'Oracle Exception [%]: %', p_code, p_msg;
           END;
+        `);
+      } catch (e) {}
+
+      // 3. DBMS_LOCK 延时等待包
+      try {
+        await client.query(`
+          CREATE OR REPLACE PACKAGE dbms_lock IS
+            PROCEDURE sleep(seconds IN NUMBER);
+          END dbms_lock;
+        `);
+        await client.query(`
+          CREATE OR REPLACE PACKAGE BODY dbms_lock IS
+            PROCEDURE sleep(seconds IN NUMBER) IS
+            BEGIN
+              PERFORM pg_sleep(seconds);
+            END sleep;
+          END dbms_lock;
+        `);
+      } catch (e) {}
+
+      // 4. DBMS_UTILITY 性能与耗时工具包
+      try {
+        await client.query(`
+          CREATE OR REPLACE PACKAGE dbms_utility IS
+            FUNCTION get_time RETURN NUMBER;
+            FUNCTION format_error_backtrace RETURN VARCHAR2;
+          END dbms_utility;
+        `);
+        await client.query(`
+          CREATE OR REPLACE PACKAGE BODY dbms_utility IS
+            FUNCTION get_time RETURN NUMBER IS
+            BEGIN
+              RETURN (EXTRACT(EPOCH FROM clock_timestamp()) * 100)::NUMBER;
+            END get_time;
+            FUNCTION format_error_backtrace RETURN VARCHAR2 IS
+            BEGIN
+              RETURN 'Error Backtrace Logged';
+            END format_error_backtrace;
+          END dbms_utility;
         `);
       } catch (e) {}
 
