@@ -42,7 +42,7 @@ CREATE OR REPLACE PACKAGE BODY emp_pkg IS
   END print_employee_info;
 
   PROCEDURE get_employee_list(
-    p_cursor OUT SYS_REFCURSOR
+    p_cursor OUT refcursor
   ) IS
   BEGIN
     OPEN p_cursor FOR SELECT * FROM employees;
