@@ -326,7 +326,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     try {
       diagnosticsCollection.clear();
-      await dbManager.query(content);
+
+      // 清洗 SQL 内容：剥离末尾单独一行的斜杠 '/' (Oracle SQL*Plus 执行符)
+      let cleanContent = content
+        .replace(/^\s*\/\s*$/gm, '')
+        .trim();
+
+      await dbManager.query(cleanContent);
       vscode.window.showInformationMessage(`[IvorySQL] 成功编译并部署 ${objectType} "${objectName}" 到数据库！`);
     } catch (err: any) {
       const lineMatch = err.message.match(/LINE\s+(\d+):/i) || err.message.match(/at line (\d+)/i);
