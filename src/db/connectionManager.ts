@@ -37,10 +37,9 @@ export class IvoryDbManager {
 
       const client = await this.pool.connect();
       try {
-        // 自动开启 IvorySQL Oracle 模式方言会话 (Oracle Compatibility Dialect)
-        await client.query("SET db_dialect = 'oracle'");
+        await client.query("SET ivorysql.compatible_mode = 'oracle'");
       } catch (dialectErr) {
-        console.warn('Set Oracle dialect query failed (Might be running standard pg mode):', dialectErr);
+        console.warn('Set Oracle dialect query failed:', dialectErr);
       } finally {
         client.release();
       }
@@ -65,7 +64,7 @@ export class IvoryDbManager {
     }
     const client = await this.pool.connect();
     try {
-      // 100% 安全自适应探针：独立隔离每个 SET 指令，绝不向外抛出任何 GUC 参数不存在错误
+      // 100% 安全自适应探针：独立隔离每个 SET 指令
       try {
         await client.query("SET ivorysql.compatible_mode = 'oracle'");
       } catch (e) {}
@@ -89,14 +88,12 @@ export class IvoryDbManager {
 
   /**
    * 从 IvorySQL 数据库中读取指定 Package / 存储过程的最新底层源码
-   * 优先查询 all_source / user_source，降级至 pg_proc
    */
   public async getDbSourceCode(objectName: string, objectType: 'PACKAGE' | 'PACKAGE BODY' | 'PROCEDURE' | 'FUNCTION'): Promise<string | null> {
     if (!this.pool) {
       return null;
     }
     try {
-      // 尝试查询 Oracle 兼容模式视图 all_source / user_source
       const res = await this.query(
         `SELECT text FROM all_source WHERE upper(name) = upper($1) AND upper(type) = upper($2) ORDER BY line`,
         [objectName, objectType]
@@ -105,7 +102,6 @@ export class IvoryDbManager {
         return res.rows.map((r: any) => r.text).join('');
       }
 
-      // Fallback: 查询 pg_proc / pg_get_functiondef
       const funcRes = await this.query(
         `SELECT pg_get_functiondef(p.oid) as src FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE upper(p.proname) = upper($1)`,
         [objectName]
@@ -116,19 +112,90 @@ export class IvoryDbManager {
 
       return null;
     } catch (e) {
-      console.warn('Failed to fetch DB source via all_source, attempting fallback query:', e);
       return null;
     }
   }
 
   /**
-   * 实时获取 Schema 内的全部表名 (用于 Intellisense)
+   * 1. 动态获取所有 Schemas 模式列表
    */
-  public async getRealtimeTables(): Promise<string[]> {
+  public async getSchemas(): Promise<string[]> {
     if (!this.pool) return [];
     try {
       const res = await this.query(
-        `SELECT table_name FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema') ORDER BY table_name`
+        `SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_toast', 'pg_temp_1') ORDER BY schema_name`
+      );
+      return res.rows.map((r: any) => r.schema_name);
+    } catch (e) {
+      return ['public'];
+    }
+  }
+
+  /**
+   * 2. 动态获取指定 Schema 下的 Packages (包头/包体)
+   */
+  public async getSchemaPackages(schemaName: string): Promise<string[]> {
+    if (!this.pool) return [];
+    try {
+      const res = await this.query(
+        `SELECT DISTINCT name FROM all_source WHERE owner = upper($1) AND type IN ('PACKAGE', 'PACKAGE BODY') ORDER BY name`,
+        [schemaName]
+      );
+      return res.rows.map((r: any) => r.name);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /**
+   * 3. 动态获取指定 Schema 下的 Procedures (存储过程)
+   */
+  public async getSchemaProcedures(schemaName: string): Promise<string[]> {
+    if (!this.pool) return [];
+    try {
+      const res = await this.query(
+        `SELECT p.proname 
+         FROM pg_proc p 
+         JOIN pg_namespace n ON p.pronamespace = n.oid 
+         WHERE n.nspname = $1 AND p.prokind = 'p' 
+         ORDER BY p.proname`,
+        [schemaName]
+      );
+      return res.rows.map((r: any) => r.proname);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /**
+   * 4. 动态获取指定 Schema 下的 Functions (函数)
+   */
+  public async getSchemaFunctions(schemaName: string): Promise<string[]> {
+    if (!this.pool) return [];
+    try {
+      const res = await this.query(
+        `SELECT p.proname 
+         FROM pg_proc p 
+         JOIN pg_namespace n ON p.pronamespace = n.oid 
+         WHERE n.nspname = $1 AND p.prokind = 'f' 
+         ORDER BY p.proname`,
+        [schemaName]
+      );
+      return res.rows.map((r: any) => r.proname);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /**
+   * 5. 动态获取指定 Schema 下的数据表 (Tables)
+   */
+  public async getSchemaTables(schemaName: string): Promise<string[]> {
+    if (!this.pool) return [];
+    try {
+      const res = await this.query(
+        `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = 'BASE TABLE' ORDER BY table_name`,
+        [schemaName]
       );
       return res.rows.map((r: any) => r.table_name);
     } catch (e) {
@@ -137,8 +204,41 @@ export class IvoryDbManager {
   }
 
   /**
-   * 实时获取指定表名的列及数据类型 (用于 Intellisense)
+   * 6. 动态获取指定 Schema 下的视图 (Views)
    */
+  public async getSchemaViews(schemaName: string): Promise<string[]> {
+    if (!this.pool) return [];
+    try {
+      const res = await this.query(
+        `SELECT table_name FROM information_schema.views WHERE table_schema = $1 ORDER BY table_name`,
+        [schemaName]
+      );
+      return res.rows.map((r: any) => r.table_name);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /**
+   * 7. 动态获取指定 Schema 下的序列 (Sequences)
+   */
+  public async getSchemaSequences(schemaName: string): Promise<string[]> {
+    if (!this.pool) return [];
+    try {
+      const res = await this.query(
+        `SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = $1 ORDER BY sequence_name`,
+        [schemaName]
+      );
+      return res.rows.map((r: any) => r.sequence_name);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  public async getRealtimeTables(): Promise<string[]> {
+    return this.getSchemaTables('public');
+  }
+
   public async getRealtimeColumns(tableName: string): Promise<{ column_name: string; data_type: string }[]> {
     if (!this.pool) return [];
     try {
@@ -152,9 +252,6 @@ export class IvoryDbManager {
     }
   }
 
-  /**
-   * 实时获取包(Package)或 Schema 内的函数/过程定义 (用于 Intellisense)
-   */
   public async getRealtimeProcedures(packageName?: string): Promise<{ name: string; type: string }[]> {
     if (!this.pool) return [];
     try {

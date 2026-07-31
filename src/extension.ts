@@ -22,6 +22,16 @@ export function activate(context: vscode.ExtensionContext) {
   const syncManager = new GitDbSyncManager(workspacePath);
   diagnosticsCollection = vscode.languages.createDiagnosticCollection('plisql');
 
+  // 新建单独 SQL 查询工作页命令
+  const newSqlScriptCmd = vscode.commands.registerCommand('ivorysql.newSqlScript', async () => {
+    const defaultTemplate = `-- IvorySQL PL/iSQL Query Window\n-- Press F9 or Ctrl+Enter to execute selected SQL query\n\nSELECT * FROM employees;\n`;
+    const doc = await vscode.workspace.openTextDocument({
+      content: defaultTemplate,
+      language: 'plisql'
+    });
+    await vscode.window.showTextDocument(doc);
+  });
+
   // 1. 连接存储器与侧边栏 TreeView 注册
   const connectionStore = new ConnectionStore(context);
   const treeProvider = new ConnectionTreeProvider(connectionStore);
@@ -404,6 +414,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    newSqlScriptCmd,
     addConnCmd,
     editConnCmd,
     connectSelectedCmd,

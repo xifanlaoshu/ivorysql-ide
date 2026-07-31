@@ -6,7 +6,7 @@ export class ConnectionTreeItem extends vscode.TreeItem {
   constructor(
     public readonly label: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-    public readonly itemType: 'CONNECTION' | 'CATEGORY' | 'PACKAGE' | 'TABLE' | 'VIEW' | 'SEQUENCE' | 'PROCEDURE' | 'REPORT',
+    public readonly itemType: 'CONNECTION' | 'SCHEMA' | 'CATEGORY' | 'PACKAGE' | 'PROCEDURE' | 'FUNCTION' | 'TABLE' | 'VIEW' | 'SEQUENCE' | 'REPORT',
     public readonly connection?: SavedConnection,
     public readonly extra?: any
   ) {
@@ -20,10 +20,17 @@ export class ConnectionTreeItem extends vscode.TreeItem {
       );
       this.contextValue = 'connectionItem';
       this.description = `${connection?.host}:${connection?.port}/${connection?.database}${connection?.isCurrent ? ' (Active)' : ''}`;
+    } else if (itemType === 'SCHEMA') {
+      this.iconPath = new vscode.ThemeIcon('symbol-namespace');
+      this.description = 'Schema';
     } else if (itemType === 'CATEGORY') {
       this.iconPath = new vscode.ThemeIcon('folder');
     } else if (itemType === 'PACKAGE') {
       this.iconPath = new vscode.ThemeIcon('archive');
+    } else if (itemType === 'PROCEDURE') {
+      this.iconPath = new vscode.ThemeIcon('symbol-event');
+    } else if (itemType === 'FUNCTION') {
+      this.iconPath = new vscode.ThemeIcon('symbol-method');
     } else if (itemType === 'TABLE') {
       this.iconPath = new vscode.ThemeIcon('symbol-property');
       this.contextValue = 'tableItem';
@@ -31,8 +38,6 @@ export class ConnectionTreeItem extends vscode.TreeItem {
       this.iconPath = new vscode.ThemeIcon('preview');
     } else if (itemType === 'SEQUENCE') {
       this.iconPath = new vscode.ThemeIcon('symbol-numeric');
-    } else if (itemType === 'PROCEDURE') {
-      this.iconPath = new vscode.ThemeIcon('symbol-method');
     } else if (itemType === 'REPORT') {
       this.iconPath = new vscode.ThemeIcon('graph');
       this.contextValue = 'reportItem';
@@ -59,6 +64,8 @@ export class ConnectionTreeProvider implements vscode.TreeDataProvider<Connectio
   }
 
   public async getChildren(element?: ConnectionTreeItem): Promise<ConnectionTreeItem[]> {
+    const dbManager = IvoryDbManager.getInstance();
+
     if (!element) {
       const connections = this.store.getConnections();
       if (connections.length === 0) {
@@ -75,39 +82,59 @@ export class ConnectionTreeProvider implements vscode.TreeDataProvider<Connectio
     }
 
     if (element.itemType === 'CONNECTION' && element.connection) {
+      if (!dbManager.isConnected() || !element.connection.isCurrent) {
+        return [new ConnectionTreeItem('Click Plug icon to connect first', vscode.TreeItemCollapsibleState.None, 'CATEGORY')];
+      }
+
+      // 第一层：根据当前连接获取 Schemas 列表
+      const schemas = await dbManager.getSchemas();
+      return schemas.map(s =>
+        new ConnectionTreeItem(
+          s,
+          vscode.TreeItemCollapsibleState.Collapsed,
+          'SCHEMA',
+          element.connection,
+          { schemaName: s }
+        )
+      );
+    }
+
+    if (element.itemType === 'SCHEMA' && element.connection) {
+      const schemaName = element.extra?.schemaName || 'public';
+      // 第二层：展开 Schema 展示专属对象目录
       return [
-        new ConnectionTreeItem('Packages (PL/iSQL)', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { category: 'PACKAGES' }),
-        new ConnectionTreeItem('Tables', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { category: 'TABLES' }),
-        new ConnectionTreeItem('Views', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { category: 'VIEWS' }),
-        new ConnectionTreeItem('Sequences', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { category: 'SEQUENCES' }),
-        new ConnectionTreeItem('Procedures & Functions', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { category: 'PROCEDURES' }),
-        new ConnectionTreeItem('DBA Diagnostic Reports (固化查询)', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { category: 'REPORTS' })
+        new ConnectionTreeItem('Packages (PL/iSQL)', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { schemaName, category: 'PACKAGES' }),
+        new ConnectionTreeItem('Procedures (存储过程)', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { schemaName, category: 'PROCEDURES' }),
+        new ConnectionTreeItem('Functions (函数)', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { schemaName, category: 'FUNCTIONS' }),
+        new ConnectionTreeItem('Tables (数据表)', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { schemaName, category: 'TABLES' }),
+        new ConnectionTreeItem('Views (视图)', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { schemaName, category: 'VIEWS' }),
+        new ConnectionTreeItem('Sequences (序列)', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { schemaName, category: 'SEQUENCES' }),
+        new ConnectionTreeItem('DBA Diagnostic Reports', vscode.TreeItemCollapsibleState.Collapsed, 'CATEGORY', element.connection, { schemaName, category: 'REPORTS' })
       ];
     }
 
     if (element.itemType === 'CATEGORY' && element.connection) {
-      const dbManager = IvoryDbManager.getInstance();
-      if (!dbManager.isConnected() || !element.connection.isCurrent) {
-        return [new ConnectionTreeItem('Please connect to this database first', vscode.TreeItemCollapsibleState.None, 'CATEGORY')];
-      }
-
+      const schemaName = element.extra?.schemaName || 'public';
       const category = element.extra?.category;
+
       if (category === 'PACKAGES') {
-        const pkgs = await dbManager.getRealtimeProcedures();
-        const pkgNames = Array.from(new Set(pkgs.map(p => p.name)));
-        return pkgNames.map(p => new ConnectionTreeItem(p, vscode.TreeItemCollapsibleState.None, 'PACKAGE', element.connection));
+        const pkgs = await dbManager.getSchemaPackages(schemaName);
+        return pkgs.map(p => new ConnectionTreeItem(p, vscode.TreeItemCollapsibleState.None, 'PACKAGE', element.connection));
+      } else if (category === 'PROCEDURES') {
+        const procs = await dbManager.getSchemaProcedures(schemaName);
+        return procs.map(p => new ConnectionTreeItem(p, vscode.TreeItemCollapsibleState.None, 'PROCEDURE', element.connection));
+      } else if (category === 'FUNCTIONS') {
+        const funcs = await dbManager.getSchemaFunctions(schemaName);
+        return funcs.map(f => new ConnectionTreeItem(f, vscode.TreeItemCollapsibleState.None, 'FUNCTION', element.connection));
       } else if (category === 'TABLES') {
-        const tables = await dbManager.getRealtimeTables();
+        const tables = await dbManager.getSchemaTables(schemaName);
         return tables.map(t => new ConnectionTreeItem(t, vscode.TreeItemCollapsibleState.None, 'TABLE', element.connection));
       } else if (category === 'VIEWS') {
-        const res = await dbManager.query("SELECT table_name FROM information_schema.views WHERE table_schema NOT IN ('pg_catalog', 'information_schema')");
-        return res.rows.map((r: any) => new ConnectionTreeItem(r.table_name, vscode.TreeItemCollapsibleState.None, 'VIEW', element.connection));
+        const views = await dbManager.getSchemaViews(schemaName);
+        return views.map(v => new ConnectionTreeItem(v, vscode.TreeItemCollapsibleState.None, 'VIEW', element.connection));
       } else if (category === 'SEQUENCES') {
-        const res = await dbManager.query("SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema NOT IN ('pg_catalog', 'information_schema')");
-        return res.rows.map((r: any) => new ConnectionTreeItem(r.sequence_name, vscode.TreeItemCollapsibleState.None, 'SEQUENCE', element.connection));
-      } else if (category === 'PROCEDURES') {
-        const procs = await dbManager.getRealtimeProcedures();
-        return procs.map(p => new ConnectionTreeItem(p.name, vscode.TreeItemCollapsibleState.None, 'PROCEDURE', element.connection));
+        const seqs = await dbManager.getSchemaSequences(schemaName);
+        return seqs.map(s => new ConnectionTreeItem(s, vscode.TreeItemCollapsibleState.None, 'SEQUENCE', element.connection));
       } else if (category === 'REPORTS') {
         return [
           new ConnectionTreeItem('表空间与存储占用 (Tablespace Report)', vscode.TreeItemCollapsibleState.None, 'REPORT', element.connection, { commandId: 'ivorysql.reportTablespaces' }),

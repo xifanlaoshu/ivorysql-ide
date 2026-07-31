@@ -18,7 +18,7 @@ CREATE OR REPLACE PACKAGE emp_pkg IS
 
   -- 游标过程声明 (使用原生标准游标类型 refcursor)
   PROCEDURE get_employee_list(
-    p_cursor OUT refcursor
+    p_cursor OUT ref cursor
   );
 
 END emp_pkg;

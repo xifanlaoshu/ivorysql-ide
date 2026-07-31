@@ -69,6 +69,12 @@
         "category": "IvorySQL"
       },
       {
+        "command": "ivorysql.newSqlScript",
+        "title": "New SQL Query Window",
+        "category": "IvorySQL",
+        "icon": "$(file-code)"
+      },
+      {
         "command": "ivorysql.addConnection",
         "title": "Add Database Connection",
         "icon": "$(add)"
@@ -175,6 +181,11 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "ivorysql.newSqlScript",
+          "when": "view == ivorysql-connections",
+          "group": "navigation"
+        },
         {
           "command": "ivorysql.addConnection",
           "when": "view == ivorysql-connections",
