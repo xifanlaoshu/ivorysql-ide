@@ -137,6 +137,12 @@
         "category": "IvorySQL"
       },
       {
+        "command": "ivorysql.checkOracleMode",
+        "title": "IvorySQL: Check Oracle Mode Status",
+        "category": "IvorySQL",
+        "icon": "$(verified)"
+      },
+      {
         "command": "ivorysql.showActiveSessions",
         "title": "IvorySQL: Show Active Database Sessions",
         "category": "IvorySQL"

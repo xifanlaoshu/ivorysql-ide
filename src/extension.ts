@@ -72,7 +72,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage(`Saved connection: ${name}`);
   });
 
-  // 4. 编辑/修改已有的数据库连接参数
+  // 6. 编辑/修改已有的数据库连接参数
   const editConnCmd = vscode.commands.registerCommand('ivorysql.editConnection', async (item?: ConnectionTreeItem) => {
     if (!item || !item.connection) return;
 
@@ -104,7 +104,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage(`Updated connection: ${name}`);
   });
 
-  // 5. 连接选中的数据库环境
+  // 7. 连接选中的数据库环境
   const connectSelectedCmd = vscode.commands.registerCommand('ivorysql.connectSelected', async (item?: ConnectionTreeItem) => {
     const targetConn = item?.connection || connectionStore.getCurrentConnection();
     if (!targetConn) {
@@ -126,7 +126,40 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 7. 固化 DBA 诊断报告命令绑定
+  // 8. 检测当前连接的 Oracle 兼容模式状态命令
+  const checkOracleModeCmd = vscode.commands.registerCommand('ivorysql.checkOracleMode', async () => {
+    const dbManager = IvoryDbManager.getInstance();
+    if (!dbManager.isConnected()) {
+      vscode.window.showWarningMessage('未连接数据库，请先连接 IvorySQL 实例。');
+      return;
+    }
+
+    try {
+      let dialect = 'Unknown';
+      let version = '';
+      try {
+        const dRes = await dbManager.query('SHOW db_dialect');
+        dialect = dRes.rows[0]?.db_dialect || dRes.rows[0]?.SHOW || 'PG Mode';
+      } catch (e) {
+        dialect = 'Standard PostgreSQL (No db_dialect GUC)';
+      }
+
+      try {
+        const vRes = await dbManager.query('SELECT version()');
+        version = vRes.rows[0]?.version || '';
+      } catch (e) {}
+
+      if (dialect.toLowerCase().includes('oracle') || version.toLowerCase().includes('ivorysql')) {
+        vscode.window.showInformationMessage(`✅ [IvorySQL Mode Verified] 当前数据库处于 Oracle 兼容模式！(Dialect: ${dialect})`);
+      } else {
+        vscode.window.showWarningMessage(`⚠️ [Mode Status] 当前数据库会话处于: ${dialect}。包含 Oracle 特有的 Package 语法需要在 IvorySQL 实例或配置文件中开启 db_dialect = 'oracle'。`);
+      }
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Check Oracle Mode Error: ${err.message}`);
+    }
+  });
+
+  // 9. 固化 DBA 诊断报告命令绑定
   const r1Cmd = vscode.commands.registerCommand('ivorysql.reportTablespaces', () => DbaQueryRunner.runTablespaceReport());
   const r2Cmd = vscode.commands.registerCommand('ivorysql.reportLocks', () => DbaQueryRunner.runLockMonitorReport());
   const r3Cmd = vscode.commands.registerCommand('ivorysql.reportSlowQueries', () => DbaQueryRunner.runSlowQueriesReport());
@@ -134,7 +167,7 @@ export function activate(context: vscode.ExtensionContext) {
   const r5Cmd = vscode.commands.registerCommand('ivorysql.reportSessions', () => DbaQueryRunner.runSessionStatsReport());
   const r6Cmd = vscode.commands.registerCommand('ivorysql.reportHitRatio', () => DbaQueryRunner.runCacheHitRatioReport());
 
-  // 8. 执行选中的 SQL / 当前文本块 (F9 或 Ctrl+Enter)
+  // 10. 执行选中的 SQL / 当前文本块 (F9 或 Ctrl+Enter)
   const queryCmd = vscode.commands.registerCommand('ivorysql.executeQuery', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
@@ -168,7 +201,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 9. 提取与查看 Table DDL 语句
+  // 11. 提取与查看 Table DDL 语句
   const ddlCmd = vscode.commands.registerCommand('ivorysql.viewTableDdl', async (item?: ConnectionTreeItem) => {
     if (!item || !item.label) return;
     const ddl = await DbTools.generateTableDdl(item.label);
@@ -176,7 +209,7 @@ export function activate(context: vscode.ExtensionContext) {
     await vscode.window.showTextDocument(doc);
   });
 
-  // 10. 查看表数据前 100 条记录 (Select Top 100 Rows)
+  // 12. 查看表数据前 100 条记录 (Select Top 100 Rows)
   const selectTopCmd = vscode.commands.registerCommand('ivorysql.selectTop100', async (item?: ConnectionTreeItem) => {
     if (!item || !item.label) return;
     const dbManager = IvoryDbManager.getInstance();
@@ -194,7 +227,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 11. 活跃会话管理与监控 (Show Active Sessions)
+  // 13. 活跃会话管理与监控 (Show Active Sessions)
   const activeSessionsCmd = vscode.commands.registerCommand('ivorysql.showActiveSessions', async () => {
     const dbManager = IvoryDbManager.getInstance();
     if (!dbManager.isConnected()) return;
@@ -212,7 +245,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 12. 删除连接命令与刷新
+  // 14. 删除连接命令与刷新
   const deleteConnCmd = vscode.commands.registerCommand('ivorysql.deleteConnection', async (item?: ConnectionTreeItem) => {
     if (item && item.connection) {
       await connectionStore.deleteConnection(item.connection.id);
@@ -225,7 +258,7 @@ export function activate(context: vscode.ExtensionContext) {
     treeProvider.refresh();
   });
 
-  // 13. 快捷键 Alt+O 切换 Package Header / Body
+  // 15. 快捷键 Alt+O 切换 Package Header / Body
   const switchCmd = vscode.commands.registerCommand('ivorysql.switchHeaderBody', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
@@ -254,7 +287,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 14. Git-First 部署与编译命令 (F8)
+  // 16. Git-First 部署与编译命令 (F8)
   const deployCmd = vscode.commands.registerCommand('ivorysql.deployToDb', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -274,13 +307,13 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showErrorMessage(syncStatus.reason || 'Database and Local Git code drift detected!');
       return;
     }
+
     const committed = await syncManager.ensureGitCommitted(document);
     if (!committed) {
       vscode.window.showWarningMessage('编译中断：必须先将修改落地提交到 Git 仓库，方可部署至数据库！');
       return;
     }
 
-    // C. 执行数据库编译（若未连接，弹出智能连接选择框自动完成连接）
     const dbManager = IvoryDbManager.getInstance();
     if (!dbManager.isConnected()) {
       const savedConnections = connectionStore.getConnections();
@@ -327,7 +360,6 @@ export function activate(context: vscode.ExtensionContext) {
     try {
       diagnosticsCollection.clear();
 
-      // 清洗 SQL 内容：剥离末尾单独一行的斜杠 '/' (Oracle SQL*Plus 执行符)
       let cleanContent = content
         .replace(/^\s*\/\s*$/gm, '')
         .trim();
@@ -355,7 +387,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 15. 注册动态 Intellisense 智能补全器
+  // 17. 注册动态 Intellisense 智能补全器
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     'plisql',
     new PlIsqlCompletionItemProvider(),
@@ -366,6 +398,7 @@ export function activate(context: vscode.ExtensionContext) {
     addConnCmd,
     editConnCmd,
     connectSelectedCmd,
+    checkOracleModeCmd,
     r1Cmd, r2Cmd, r3Cmd, r4Cmd, r5Cmd, r6Cmd,
     queryCmd,
     ddlCmd,
