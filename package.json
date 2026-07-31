@@ -84,6 +84,29 @@
         "icon": "$(trash)"
       },
       {
+        "command": "ivorysql.executeQuery",
+        "title": "IvorySQL: Execute Selected SQL Query",
+        "category": "IvorySQL",
+        "icon": "$(play)"
+      },
+      {
+        "command": "ivorysql.viewTableDdl",
+        "title": "View Table DDL",
+        "category": "IvorySQL",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "ivorysql.selectTop100",
+        "title": "Select Top 100 Rows",
+        "category": "IvorySQL",
+        "icon": "$(table)"
+      },
+      {
+        "command": "ivorysql.showActiveSessions",
+        "title": "IvorySQL: Show Active Database Sessions",
+        "category": "IvorySQL"
+      },
+      {
         "command": "ivorysql.connectSelected",
         "title": "Connect to Database",
         "icon": "$(plug)"
@@ -132,10 +155,32 @@
           "command": "ivorysql.deleteConnection",
           "when": "view == ivorysql-connections && viewItem == connectionItem",
           "group": "inline"
+        },
+        {
+          "command": "ivorysql.selectTop100",
+          "when": "view == ivorysql-connections",
+          "group": "1_actions"
+        },
+        {
+          "command": "ivorysql.viewTableDdl",
+          "when": "view == ivorysql-connections",
+          "group": "1_actions"
         }
       ]
     },
     "keybindings": [
+      {
+        "command": "ivorysql.executeQuery",
+        "key": "f9",
+        "mac": "f9",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "ivorysql.executeQuery",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus"
+      },
       {
         "command": "ivorysql.switchHeaderBody",
         "key": "alt+o",
