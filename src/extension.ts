@@ -242,17 +242,54 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showErrorMessage(syncStatus.reason || 'Database and Local Git code drift detected!');
       return;
     }
-
     const committed = await syncManager.ensureGitCommitted(document);
     if (!committed) {
       vscode.window.showWarningMessage('编译中断：必须先将修改落地提交到 Git 仓库，方可部署至数据库！');
       return;
     }
 
+    // C. 执行数据库编译（若未连接，弹出智能连接选择框自动完成连接）
     const dbManager = IvoryDbManager.getInstance();
     if (!dbManager.isConnected()) {
-      vscode.window.showErrorMessage('未连接到 IvorySQL 数据库！请在左侧 IvorySQL 侧边栏面板中选择并连接数据库。');
-      return;
+      const savedConnections = connectionStore.getConnections();
+      if (savedConnections.length > 0) {
+        const selectedItem = await vscode.window.showQuickPick(
+          savedConnections.map(c => ({
+            label: `$(plug) ${c.name}`,
+            description: `${c.host}:${c.port}/${c.database}`,
+            conn: c
+          })),
+          { placeHolder: '未连接数据库！请选择要连接的 IvorySQL 数据库环境：' }
+        );
+
+        if (selectedItem) {
+          const success = await dbManager.connect({
+            host: selectedItem.conn.host,
+            port: selectedItem.conn.port,
+            database: selectedItem.conn.database,
+            user: selectedItem.conn.user,
+            password: selectedItem.conn.password || ''
+          });
+          if (success) {
+            await connectionStore.setCurrentConnection(selectedItem.conn.id);
+            treeProvider.refresh();
+          } else {
+            return;
+          }
+        } else {
+          return;
+        }
+      } else {
+        const createChoice = await vscode.window.showWarningMessage(
+          '未连接到 IvorySQL 数据库，且尚未保存任何连接信息。是否立即新建连接？',
+          '新建连接',
+          '取消'
+        );
+        if (createChoice === '新建连接') {
+          await vscode.commands.executeCommand('ivorysql.addConnection');
+        }
+        return;
+      }
     }
 
     try {
