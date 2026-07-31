@@ -33,13 +33,13 @@ export class PlIsqlDefinitionProvider implements vscode.DefinitionProvider {
       targetProcName = parts[0];
     }
 
-    // 2. 如果解析出了特定的包名 (例如 admin_user_pkg)，在工作区搜寻对应的 .pkb 或 .pkh 文件
+    // 2. 如果解析出了特定的包名 (例如 admin_user_pkg)，优先搜寻匹配文件
     if (targetPkgName) {
-      const files = await vscode.workspace.findFiles(`**/${targetPkgName}.{pkb,pkh,sql}`);
-      if (files.length > 0) {
-        // 优先搜寻包体 .pkb，其次包头 .pkh
-        const pkbFile = files.find(f => f.fsPath.endsWith('.pkb')) || files[0];
-        const targetDoc = await vscode.workspace.openTextDocument(pkbFile);
+      const cleanPkgName = targetPkgName.replace(/"/g, '');
+      const files = await vscode.workspace.findFiles(`**/*${cleanPkgName}*.{pkb,pkh,sql}`);
+      
+      for (const file of files) {
+        const targetDoc = await vscode.workspace.openTextDocument(file);
         const targetText = targetDoc.getText();
         const targetLines = targetText.split(/\r?\n/);
 
@@ -48,26 +48,29 @@ export class PlIsqlDefinitionProvider implements vscode.DefinitionProvider {
             const line = targetLines[i];
             const procRegex = new RegExp(`PROCEDURE\\s+${targetProcName}\\b`, 'i');
             if (procRegex.test(line)) {
-              return new vscode.Location(pkbFile, new vscode.Position(i, line.search(new RegExp(targetProcName, 'i'))));
+              return new vscode.Location(file, new vscode.Position(i, line.search(new RegExp(targetProcName, 'i'))));
             }
           }
+        } else {
+          return new vscode.Location(file, new vscode.Position(0, 0));
         }
-
-        // 如果没有精准过程定位，打开目标包文件首行
-        return new vscode.Location(pkbFile, new vscode.Position(0, 0));
       }
     }
 
-    // 3. 在当前文档中按过程名直接搜寻定义
+    // 3. 工作区全文 AST 强力搜寻 (在所有工作区 .pkb, .pkh, .sql 文件内搜寻 PROCEDURE/FUNCTION targetProcName)
     if (targetProcName) {
-      const currentText = document.getText();
-      const lines = currentText.split(/\r?\n/);
+      const allFiles = await vscode.workspace.findFiles(`**/*.{pkb,pkh,sql}`);
+      for (const file of allFiles) {
+        const targetDoc = await vscode.workspace.openTextDocument(file);
+        const targetText = targetDoc.getText();
+        const targetLines = targetText.split(/\r?\n/);
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const procRegex = new RegExp(`PROCEDURE\\s+${targetProcName}\\b`, 'i');
-        if (procRegex.test(line)) {
-          return new vscode.Location(document.uri, new vscode.Position(i, line.search(new RegExp(targetProcName, 'i'))));
+        for (let i = 0; i < targetLines.length; i++) {
+          const line = targetLines[i];
+          const procRegex = new RegExp(`(?:PROCEDURE|FUNCTION)\\s+${targetProcName}\\b`, 'i');
+          if (procRegex.test(line)) {
+            return new vscode.Location(file, new vscode.Position(i, line.search(new RegExp(targetProcName, 'i'))));
+          }
         }
       }
     }
