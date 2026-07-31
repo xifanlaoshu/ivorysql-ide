@@ -73,9 +73,29 @@ export class IvoryDbManager {
     });
 
     try {
-      // 100% 安全自适应探针：独立隔离每个 SET 指令
+      // 100% 安全自适应探针：独立隔离每个 SET 指令与按需补全 DBMS_OUTPUT 系统包
       try {
         await client.query("SET ivorysql.compatible_mode = 'oracle'");
+      } catch (e) {}
+
+      try {
+        await client.query(`
+          CREATE OR REPLACE PACKAGE dbms_output IS
+            PROCEDURE enable(buffer_size IN NUMBER DEFAULT 20000);
+            PROCEDURE disable;
+            PROCEDURE put_line(a IN VARCHAR2);
+          END dbms_output;
+        `);
+        await client.query(`
+          CREATE OR REPLACE PACKAGE BODY dbms_output IS
+            PROCEDURE enable(buffer_size IN NUMBER DEFAULT 20000) IS
+            BEGIN NULL; END enable;
+            PROCEDURE disable IS
+            BEGIN NULL; END disable;
+            PROCEDURE put_line(a IN VARCHAR2) IS
+            BEGIN RAISE NOTICE '%', a; END put_line;
+          END dbms_output;
+        `);
       } catch (e) {}
 
       try {
