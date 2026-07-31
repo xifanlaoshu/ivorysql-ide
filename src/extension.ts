@@ -147,8 +147,10 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     const debugHarness = `-- ====================================================================
--- IvorySQL PL/iSQL Real-time Package Debug & Test Harness: ${pkgName}.${procName}
--- 提示: 选中下方代码按下 F9 即可运行测试，并在下方实时捕获调试 Log
+-- 🐞 IvorySQL PL/iSQL Real-time Package Debug & Test Harness
+-- 🎯 当前调试运行 Schema 环境: [ ${schemaName} ]
+-- 📦 目标调试 Package 包: [ ${pkgName}.${procName} ]
+-- 💡 提示: 选中下方代码按下 F9 即可调起执行，并在下方实时捕获调试 Log
 -- ====================================================================
 -- 自动设置目标 Schema 搜寻路径 (搜寻模式: ${schemaName})
 SET search_path = "${schemaName}", sys, public, pg_catalog;
@@ -158,15 +160,19 @@ DECLARE
 ${declareVars}
 BEGIN
   DBMS_OUTPUT.PUT_LINE('==============================================');
-  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG SESSION START] Package: "${schemaName}"."${pkgName}".${procName}');
+  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG SESSION START]');
+  DBMS_OUTPUT.PUT_LINE('🎯 Target Schema : ${schemaName}');
+  DBMS_OUTPUT.PUT_LINE('📦 Target Package: ${pkgName}.${procName}');
   DBMS_OUTPUT.PUT_LINE('==============================================');
 
-  -- 调用包内过程 (${schemaName}.${pkgName}.${procName}):
+  -- 调用包内过程 ("${schemaName}"."${pkgName}".${procName}):
   "${schemaName}"."${pkgName}".${procName}(
 ${callParams}
   );
 
+  DBMS_OUTPUT.PUT_LINE('==============================================');
   DBMS_OUTPUT.PUT_LINE('✅ [DEBUG SESSION FINISHED]');
+  DBMS_OUTPUT.PUT_LINE('==============================================');
 END;
 `;
 
