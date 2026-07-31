@@ -136,7 +136,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 反向拉取包头/包体/存储过程 DDL 源码并快速开窗编辑命令
+  // 反向拉取包头/包体/存储过程 DDL 源码，自动定位本地文件并打开 VS Code Diff 差异比对面板
   const openSourceCmd = vscode.commands.registerCommand('ivorysql.openPackageSource', async (schemaName: string, objectName: string, objectType: 'PACKAGE' | 'PACKAGE BODY' | 'PROCEDURE' | 'FUNCTION') => {
     const dbManager = IvoryDbManager.getInstance();
     if (!dbManager.isConnected()) {
@@ -145,26 +145,58 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     try {
-      let code = await dbManager.getDbSourceCode(schemaName, objectName, objectType);
-      if (!code) {
-        // 提供缺省模板
+      let dbCode = await dbManager.getDbSourceCode(schemaName, objectName, objectType);
+      if (!dbCode) {
         if (objectType === 'PACKAGE') {
-          code = `-- IvorySQL PL/iSQL Package Header Specification: ${objectName}\nCREATE OR REPLACE PACKAGE ${objectName} IS\n  -- Add procedure/function declarations here\nEND ${objectName};\n`;
+          dbCode = `-- IvorySQL PL/iSQL Package Header Specification: ${objectName}\nCREATE OR REPLACE PACKAGE ${objectName} IS\n  -- Add procedure/function declarations here\nEND ${objectName};\n`;
         } else if (objectType === 'PACKAGE BODY') {
-          code = `-- IvorySQL PL/iSQL Package Body Implementation: ${objectName}\nCREATE OR REPLACE PACKAGE BODY ${objectName} IS\n  -- Add procedure/function bodies here\nEND ${objectName};\n`;
+          dbCode = `-- IvorySQL PL/iSQL Package Body Implementation: ${objectName}\nCREATE OR REPLACE PACKAGE BODY ${objectName} IS\n  -- Add procedure/function bodies here\nEND ${objectName};\n`;
         } else {
-          code = `-- IvorySQL PL/iSQL ${objectType}: ${objectName}\nCREATE OR REPLACE ${objectType} ${objectName} AS $$\nBEGIN\n  NULL;\nEND;\n$$ LANGUAGE plpgsql;\n`;
+          dbCode = `-- IvorySQL PL/iSQL ${objectType}: ${objectName}\nCREATE OR REPLACE ${objectType} ${objectName} AS $$\nBEGIN\n  NULL;\nEND;\n$$ LANGUAGE plpgsql;\n`;
         }
       }
 
-      const doc = await vscode.workspace.openTextDocument({
-        content: code,
+      // 1. 在当前 VS Code 工作区中智能定位同名本地文件
+      const cleanPkgName = objectName.toLowerCase();
+      let targetExts: string[] = [];
+      if (objectType === 'PACKAGE') {
+        targetExts = ['.pkh', '_header.sql', '.sql'];
+      } else if (objectType === 'PACKAGE BODY') {
+        targetExts = ['.pkb', '_body.sql', '.sql'];
+      } else {
+        targetExts = ['.sql', '.pls'];
+      }
+
+      const files = await vscode.workspace.findFiles(`**/*${cleanPkgName}*`);
+      let matchedLocalUri: vscode.Uri | null = null;
+
+      for (const file of files) {
+        const fn = path.basename(file.fsPath).toLowerCase();
+        if (targetExts.some(ext => fn.endsWith(ext))) {
+          matchedLocalUri = file;
+          break;
+        }
+      }
+
+      // 创建数据库最新源码的临时内存文档
+      const dbDoc = await vscode.workspace.openTextDocument({
+        content: dbCode,
         language: 'plisql'
       });
-      await vscode.window.showTextDocument(doc);
-      vscode.window.showInformationMessage(`[IvorySQL Source Retrieved] 已调出 ${objectType} "${objectName}" 源码！您可以直接修改并按 F8 编译覆盖。`);
+
+      // 2. 如果找到了匹配的本地源代码文件，自动调起 VS Code 原生 Diff 差异面板
+      if (matchedLocalUri) {
+        const localDoc = await vscode.workspace.openTextDocument(matchedLocalUri);
+        const title = `Local (${path.basename(matchedLocalUri.fsPath)}) ↔ DB Live (${objectName} [${objectType}])`;
+        await vscode.commands.executeCommand('vscode.diff', matchedLocalUri, dbDoc.uri, title);
+        vscode.window.showInformationMessage(`🔍 [Auto-Diff Enabled] 已自动找到本地文件 "${path.basename(matchedLocalUri.fsPath)}"，并与数据库实时 DDL 拉起差异比对！`);
+      } else {
+        // 未在本地找到匹配文件，打开数据库源码编辑窗
+        await vscode.window.showTextDocument(dbDoc);
+        vscode.window.showInformationMessage(`[IvorySQL Source] 未在本地工作区找到匹配的 ${objectName} 文件，已从数据库拉取最新 DDL，您可以直接按 F8 覆盖编译。`);
+      }
     } catch (err: any) {
-      vscode.window.showErrorMessage(`Open Source Error: ${err.message}`);
+      vscode.window.showErrorMessage(`Open Source & Diff Error: ${err.message}`);
     }
   });
 
