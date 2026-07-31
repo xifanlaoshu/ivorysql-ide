@@ -345,7 +345,13 @@ export function activate(context: vscode.ExtensionContext) {
       );
 
       diagnosticsCollection.set(document.uri, [diagnostic]);
-      vscode.window.showErrorMessage(`[IvorySQL 编译错误] Line ${lineNum + 1}: ${err.message}`);
+
+      let friendlyMsg = `[IvorySQL 编译错误] Line ${lineNum + 1}: ${err.message}`;
+      if (err.message.includes('does not exist') && (objectType === 'PACKAGE BODY' || document.fileName.endsWith('.pkb'))) {
+        friendlyMsg += ' 💡【提示】：当包体依赖自定义类型时，请确保已先按 F8 编译部署对应的 Package Header (.pkh) 包头文件。';
+      }
+
+      vscode.window.showErrorMessage(friendlyMsg);
     }
   });
 
