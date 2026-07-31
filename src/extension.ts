@@ -59,15 +59,15 @@ DECLARE
   v_emp_name VARCHAR2(100) := 'Debug Test User';
   v_salary   NUMBER := 9500;
 BEGIN
-  RAISE NOTICE '==================================================';
-  RAISE NOTICE '🐞 [DEBUG SESSION START] Package: %', '${pkgName}';
-  RAISE NOTICE '🐞 [DEBUG VARS] Emp ID: %, Name: %, Salary: %', v_emp_id, v_emp_name, v_salary;
-  RAISE NOTICE '==================================================';
+  DBMS_OUTPUT.PUT_LINE('==============================================');
+  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG SESSION START] Package: ${pkgName}');
+  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG VARS] Emp ID: ' || v_emp_id || ', Name: ' || v_emp_name);
+  DBMS_OUTPUT.PUT_LINE('==============================================');
 
   -- 调用包内过程进行调试测试:
   ${pkgName}.${procName}(p_emp_id => v_emp_id, p_emp_name => v_emp_name, p_salary => v_salary);
 
-  RAISE NOTICE '✅ [DEBUG SESSION FINISHED]';
+  DBMS_OUTPUT.PUT_LINE('✅ [DEBUG SESSION FINISHED]');
 END;
 /
 `;
