@@ -380,9 +380,12 @@ export function activate(context: vscode.ExtensionContext) {
         .trim();
 
       await dbManager.query(cleanContent);
-      vscode.window.showInformationMessage(`[IvorySQL] 成功编译并部署 ${objectType} "${objectName}" 到数据库！`);
+
+      // 提取目标 Schema (若显式指定如 hr.emp_pkg，则提取 hr，否则显示当前活动 Schema)
+      const targetSchema = objectName.includes('.') ? objectName.split('.')[0] : 'public (Default Schema)';
+      vscode.window.showInformationMessage(`[IvorySQL] 成功编译并部署 ${objectType} "${objectName}" 到 Schema [${targetSchema}]！`);
       
-      // 自动实时刷新左侧侧边栏导航树，让新编译的 Package / 存储过程立刻显示出来
+      // 自动实时刷新左侧侧边栏导航树
       treeProvider.refresh();
     } catch (err: any) {
       const lineMatch = err.message.match(/LINE\s+(\d+):/i) || err.message.match(/at line (\d+)/i);
