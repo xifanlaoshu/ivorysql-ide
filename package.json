@@ -143,6 +143,12 @@
         "category": "IvorySQL"
       },
       {
+        "command": "ivorysql.dropObject",
+        "title": "Drop / Delete Object from DB",
+        "category": "IvorySQL",
+        "icon": "$(trash)"
+      },
+      {
         "command": "ivorysql.openPackageSource",
         "title": "Open Package Source for Edit",
         "category": "IvorySQL",
@@ -239,6 +245,16 @@
           "command": "ivorysql.viewTableDdl",
           "when": "view == ivorysql-connections && (viewItem == packageItem || viewItem == procedureItem || viewItem == functionItem)",
           "group": "1_actions"
+        },
+        {
+          "command": "ivorysql.dropObject",
+          "when": "view == ivorysql-connections && (viewItem == packageItem || viewItem == packageHeaderItem || viewItem == packageBodyItem || viewItem == procedureItem || viewItem == functionItem || viewItem == tableItem || viewItem == viewItem)",
+          "group": "inline"
+        },
+        {
+          "command": "ivorysql.dropObject",
+          "when": "view == ivorysql-connections && (viewItem == packageItem || viewItem == packageHeaderItem || viewItem == packageBodyItem || viewItem == procedureItem || viewItem == functionItem || viewItem == tableItem || viewItem == viewItem)",
+          "group": "2_danger"
         }
       ]
     },

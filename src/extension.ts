@@ -200,6 +200,62 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // 数据库对象安全删除控制器 (带二次确认高危警告弹窗)
+  const dropObjectCmd = vscode.commands.registerCommand('ivorysql.dropObject', async (item?: ConnectionTreeItem) => {
+    if (!item) return;
+
+    const dbManager = IvoryDbManager.getInstance();
+    if (!dbManager.isConnected()) {
+      vscode.window.showWarningMessage('未连接数据库，请先连接 IvorySQL 实例。');
+      return;
+    }
+
+    const schemaName = item.extra?.schemaName || 'public';
+    let objectName = item.extra?.pkgName || item.label;
+    let dropType = '';
+
+    if (item.itemType === 'PACKAGE') {
+      dropType = 'PACKAGE';
+    } else if (item.itemType === 'PACKAGE_HEADER') {
+      dropType = 'PACKAGE';
+    } else if (item.itemType === 'PACKAGE_BODY') {
+      dropType = 'PACKAGE BODY';
+    } else if (item.itemType === 'PROCEDURE') {
+      dropType = 'PROCEDURE';
+    } else if (item.itemType === 'FUNCTION') {
+      dropType = 'FUNCTION';
+    } else if (item.itemType === 'TABLE') {
+      dropType = 'TABLE';
+    } else if (item.itemType === 'VIEW') {
+      dropType = 'VIEW';
+    }
+
+    if (!dropType || !objectName) return;
+
+    // 二次确认高危防误删警告弹窗
+    const choice = await vscode.window.showWarningMessage(
+      `⚠️【高危警告】：您确定要从数据库 [${schemaName}] 中永久删除 ${dropType} "${objectName}" 吗？此操作不可逆！`,
+      { modal: true },
+      '确定物理删除',
+      '取消'
+    );
+
+    if (choice !== '确定物理删除') {
+      return;
+    }
+
+    try {
+      const dropSql = `DROP ${dropType} "${schemaName}"."${objectName}"`;
+      await dbManager.query(dropSql);
+      vscode.window.showInformationMessage(`[IvorySQL Drop Success] 成功从数据库 [${schemaName}] 中删除 ${dropType} "${objectName}"！`);
+      
+      // 自动实时刷新侧边栏 TreeView 列表
+      treeProvider.refresh();
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Drop Object Error: ${err.message}`);
+    }
+  });
+
   // 8. 检测当前连接的 Oracle 兼容模式状态命令
   const checkOracleModeCmd = vscode.commands.registerCommand('ivorysql.checkOracleMode', async () => {
     const dbManager = IvoryDbManager.getInstance();
@@ -522,6 +578,7 @@ export function activate(context: vscode.ExtensionContext) {
     editConnCmd,
     connectSelectedCmd,
     openSourceCmd,
+    dropObjectCmd,
     checkOracleModeCmd,
     debugScanCmd,
     r1Cmd, r2Cmd, r3Cmd, r4Cmd, r5Cmd, r6Cmd,
