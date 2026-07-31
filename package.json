@@ -149,6 +149,12 @@
         "icon": "$(verified)"
       },
       {
+        "command": "ivorysql.debugScanPackage",
+        "title": "IvorySQL: Debug Scan Database Packages (后端包全表诊断)",
+        "category": "IvorySQL",
+        "icon": "$(search)"
+      },
+      {
         "command": "ivorysql.showActiveSessions",
         "title": "IvorySQL: Show Active Database Sessions",
         "category": "IvorySQL"

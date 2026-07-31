@@ -174,6 +174,39 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // 9. 后端包全表诊断检索命令 (Debug Scan Packages)
+  const debugScanCmd = vscode.commands.registerCommand('ivorysql.debugScanPackage', async () => {
+    const dbManager = IvoryDbManager.getInstance();
+    if (!dbManager.isConnected()) {
+      vscode.window.showWarningMessage('未连接数据库，请先连接 IvorySQL 实例。');
+      return;
+    }
+
+    try {
+      const sql = `
+        SELECT 'all_source' AS catalog_table, name, type, owner FROM all_source WHERE upper(name) LIKE '%EMP%'
+        UNION ALL
+        SELECT 'user_source' AS catalog_table, name, type, '' AS owner FROM user_source WHERE upper(name) LIKE '%EMP%'
+        UNION ALL
+        SELECT 'sys_package' AS catalog_table, pkgname AS name, 'PACKAGE' AS type, '' AS owner FROM sys_package WHERE upper(pkgname) LIKE '%EMP%'
+        UNION ALL
+        SELECT 'pg_proc' AS catalog_table, proname AS name, prokind::text AS type, nspname AS owner 
+        FROM pg_proc 
+        JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid 
+        WHERE upper(proname) LIKE '%EMP%'
+      `;
+      const res = await dbManager.query(sql);
+      if (res.rows.length === 0) {
+        vscode.window.showInformationMessage('数据库字典扫盘完成：后端数据库全表中暂无包含 EMP 的 Package 记录。请在 emp_pkg.pkh 中按 F8 再次部署编译。');
+      } else {
+        const columns = ['catalog_table', 'name', 'type', 'owner'];
+        ResultSetWebview.showQueryResult('后端数据库 Package 全字典扫描报告', null, columns, res.rows, res.rows.length, 0);
+      }
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Debug Scan Package Error: ${err.message}`);
+    }
+  });
+
   // 9. 固化 DBA 诊断报告命令绑定
   const r1Cmd = vscode.commands.registerCommand('ivorysql.reportTablespaces', () => DbaQueryRunner.runTablespaceReport());
   const r2Cmd = vscode.commands.registerCommand('ivorysql.reportLocks', () => DbaQueryRunner.runLockMonitorReport());
@@ -425,6 +458,7 @@ export function activate(context: vscode.ExtensionContext) {
     editConnCmd,
     connectSelectedCmd,
     checkOracleModeCmd,
+    debugScanCmd,
     r1Cmd, r2Cmd, r3Cmd, r4Cmd, r5Cmd, r6Cmd,
     queryCmd,
     ddlCmd,
