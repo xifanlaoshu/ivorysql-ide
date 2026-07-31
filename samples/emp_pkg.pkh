@@ -1,8 +1,8 @@
 -- IvorySQL PL/iSQL Package Header Sample
 CREATE OR REPLACE PACKAGE emp_pkg IS
 
-  -- 定义 Cursor 类型 (支持 SYS_REFCURSOR / REF CURSOR)
-  TYPE emp_ref_cursor IS REF CURSOR;
+  -- 使用系统游标类型定义
+  TYPE emp_ref_cursor IS SYS_REFCURSOR;
 
   -- 过程与函数声明
   PROCEDURE add_employee(

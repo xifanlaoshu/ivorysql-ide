@@ -63,7 +63,17 @@ export class IvoryDbManager {
     if (!this.pool) {
       throw new Error('Not connected to IvorySQL database');
     }
-    return await this.pool.query(text, params);
+    const client = await this.pool.connect();
+    try {
+      // 保证每次查询/编译会话均处于 IvorySQL Oracle 模式方言与 sys 系统架构路径下
+      await client.query("SET db_dialect = 'oracle'; SET search_path = sys, pg_catalog, public;");
+      const res = await client.query(text, params);
+      return res;
+    } catch (err) {
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   /**
