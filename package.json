@@ -261,6 +261,37 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically commit uncommitted local changes before compiling/deploying to DB"
+        },
+        "ivorysql.format.keywordCase": {
+          "type": "string",
+          "enum": ["Uppercase", "Lowercase", "Preserve"],
+          "default": "Uppercase",
+          "description": "Preferred letter case for PL/iSQL keywords during formatting"
+        },
+        "ivorysql.format.tabSize": {
+          "type": "number",
+          "default": 2,
+          "description": "Number of indentation spaces used by PL/iSQL formatter"
+        },
+        "ivorysql.editor.enableHoverSchema": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable hover tooltip to preview database table columns and data types"
+        },
+        "ivorysql.editor.enableRealtimeCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time database schema Intellisense completions"
+        },
+        "ivorysql.dataGrid.maxResultRows": {
+          "type": "number",
+          "default": 500,
+          "description": "Maximum number of rows returned in SQL Query Webview data grid"
+        },
+        "ivorysql.dataGrid.queryTimeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "description": "Database query timeout in milliseconds"
         }
       }
     }

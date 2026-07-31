@@ -16,12 +16,15 @@ export class PlIsqlFormatter implements vscode.DocumentFormattingEditProvider {
     options: vscode.FormattingOptions,
     token: vscode.CancellationToken
   ): vscode.TextEdit[] {
+    const config = vscode.workspace.getConfiguration('ivorysql.format');
+    const keywordCase = config.get<string>('keywordCase', 'Uppercase');
+    const customTabSize = config.get<number>('tabSize', options.tabSize || 2);
+
     const edits: vscode.TextEdit[] = [];
     const lineCount = document.lineCount;
 
     let currentIndent = 0;
-    const tabSize = options.tabSize || 2;
-    const indentStr = options.insertSpaces ? ' '.repeat(tabSize) : '\t';
+    const indentStr = options.insertSpaces ? ' '.repeat(customTabSize) : '\t';
 
     for (let i = 0; i < lineCount; i++) {
       const line = document.lineAt(i);
@@ -29,15 +32,16 @@ export class PlIsqlFormatter implements vscode.DocumentFormattingEditProvider {
 
       if (text.length === 0) continue;
 
-      // 1. 自动格式化关键字大写
-      text = text.replace(/\b([a-zA-Z_]+)\b/g, (match) => {
-        if (this.keywords.has(match.toUpperCase())) {
-          return match.toUpperCase();
-        }
-        return match;
-      });
+      // 遵循用户设置的关键字大小写偏好 (Uppercase / Lowercase / Preserve)
+      if (keywordCase !== 'Preserve') {
+        text = text.replace(/\b([a-zA-Z_]+)\b/g, (match) => {
+          if (this.keywords.has(match.toUpperCase())) {
+            return keywordCase === 'Lowercase' ? match.toLowerCase() : match.toUpperCase();
+          }
+          return match;
+        });
+      }
 
-      // 2. 自动计算缩进
       const upperText = text.toUpperCase();
       if (/^\s*(END|ELSIF|ELSE|WHEN)\b/.test(upperText)) {
         currentIndent = Math.max(0, currentIndent - 1);
