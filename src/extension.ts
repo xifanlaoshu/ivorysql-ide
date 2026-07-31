@@ -517,10 +517,10 @@ END;
     try {
       const startTime = Date.now();
 
-      // 自动开启 Oracle 兼容模式与注入动态 search_path，支持跨 Schema 访问
+      // 强制在每一次 F9 执行前，同一 Session 内激活 Oracle 模式与包含 aurora_admin 的 search_path
       try {
         await dbManager.query("SET ivorysql.compatible_mode = 'oracle'");
-        await dbManager.query("SET search_path = aurora_admin, sys, public, pg_catalog");
+        await dbManager.query('SET search_path = "aurora_admin", "public", sys, pg_catalog');
       } catch (e) {}
 
       const res = await dbManager.query(sql);
