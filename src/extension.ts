@@ -248,16 +248,16 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     try {
-      // 优化 DROP SQL 拼接：当属于默认 Schema (public 或 sys) 时省略 Schema 前缀，确保 IvorySQL 语法 100% 兼容
+      const cleanObjName = objectName.replace(/"/g, '');
       let dropSql = '';
       if (!schemaName || schemaName.toLowerCase() === 'public' || schemaName.toLowerCase() === 'sys') {
-        dropSql = `DROP ${dropType} "${objectName}"`;
+        dropSql = `DROP ${dropType} IF EXISTS ${cleanObjName}`;
       } else {
-        dropSql = `DROP ${dropType} "${schemaName}"."${objectName}"`;
+        dropSql = `DROP ${dropType} IF EXISTS ${schemaName}.${cleanObjName}`;
       }
 
       await dbManager.query(dropSql);
-      vscode.window.showInformationMessage(`[IvorySQL Drop Success] 成功从数据库中删除 ${dropType} "${objectName}"！`);
+      vscode.window.showInformationMessage(`[IvorySQL Drop Success] 成功从数据库中删除 ${dropType} "${cleanObjName}"！`);
       
       // 自动实时刷新侧边栏 TreeView 列表
       treeProvider.refresh();
