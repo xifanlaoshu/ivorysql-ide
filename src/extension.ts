@@ -5,6 +5,7 @@ import * as os from 'os';
 import { IvoryDbManager } from './db/connectionManager';
 import { GitDbSyncManager } from './versionControl/syncManager';
 import { PlIsqlCompletionItemProvider } from './lsp/completionProvider';
+import { PlIsqlDefinitionProvider } from './lsp/definitionProvider';
 import { ConnectionStore } from './db/connectionStore';
 import { ConnectionTreeProvider, ConnectionTreeItem } from './views/connectionTreeView';
 import { PlIsqlFormatter } from './formatter/plsqlFormatter';
@@ -12,7 +13,6 @@ import { ResultSetWebview } from './views/resultSetWebview';
 import { DbTools } from './db/ddlGenerator';
 import { DbaQueryRunner } from './db/dbaQueries';
 import { PlIsqlHoverProvider } from './lsp/hoverProvider';
-import { PlIsqlDefinitionProvider } from './lsp/definitionProvider';
 
 let diagnosticsCollection: vscode.DiagnosticCollection;
 
@@ -181,6 +181,16 @@ END;
     await vscode.window.showTextDocument(doc, { preview: false });
     vscode.window.showInformationMessage(`🐞 [Debug Mode Ready] 已调出 Package "${pkgName}" 调试测试脚手架！按 F9 即可运行并捕获 DBMS_OUTPUT 日志。`);
   });
+
+  // 注册 PL/iSQL 跳转到定义提供器 (F12 Go to Definition)
+  const defProvider = new PlIsqlDefinitionProvider();
+  const selector: vscode.DocumentSelector = [
+    { language: 'plisql' },
+    { pattern: '**/*.pkh' },
+    { pattern: '**/*.pkb' },
+    { pattern: '**/*.sql' }
+  ];
+  context.subscriptions.push(vscode.languages.registerDefinitionProvider(selector, defProvider));
 
   // 1. 连接存储器与侧边栏 TreeView 注册
   const connectionStore = new ConnectionStore(context);
