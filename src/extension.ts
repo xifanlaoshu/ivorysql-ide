@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const debugHarness = `-- ====================================================================
 -- IvorySQL PL/iSQL Real-time Package Debug & Test Harness: ${pkgName}
--- 提示: 选中下方代码按下 F9 或 Ctrl+Enter 即可调起执行并实时捕获 DBMS_OUTPUT 调试日志
+-- 提示: 选中下方代码按下 F9 或 Ctrl+Enter 即可调起执行测试
 -- ====================================================================
 DECLARE
   -- 声明测试变量
@@ -59,14 +59,8 @@ DECLARE
   v_emp_name VARCHAR2(100) := 'Debug Test User';
   v_salary   NUMBER := 9500;
 BEGIN
-  DBMS_OUTPUT.PUT_LINE('==============================================');
-  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG SESSION START] Package: ${pkgName}');
-  DBMS_OUTPUT.PUT_LINE('==============================================');
-
   -- 调用包内过程进行调试测试:
   ${pkgName}.${procName}(p_emp_id => v_emp_id, p_emp_name => v_emp_name, p_salary => v_salary);
-
-  DBMS_OUTPUT.PUT_LINE('✅ [DEBUG SESSION FINISHED]');
 END;
 /
 `;
@@ -411,11 +405,10 @@ END;
 
     try {
       const startTime = Date.now();
-      
-      // 静默开启 Oracle 兼容模式与 DBMS_OUTPUT 调试缓冲区（如果支持）
+
+      // 自动开启 Oracle 兼容模式
       try {
         await dbManager.query("SET ivorysql.compatible_mode = 'oracle'");
-        await dbManager.query("CALL sys.dbms_output.enable(1000000)");
       } catch (e) {}
 
       const res = await dbManager.query(sql);
