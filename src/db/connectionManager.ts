@@ -36,9 +36,17 @@ export class IvoryDbManager {
       });
 
       const client = await this.pool.connect();
-      client.release();
+      try {
+        // 自动开启 IvorySQL Oracle 模式方言会话 (Oracle Compatibility Dialect)
+        await client.query("SET db_dialect = 'oracle'");
+      } catch (dialectErr) {
+        console.warn('Set Oracle dialect query failed (Might be running standard pg mode):', dialectErr);
+      } finally {
+        client.release();
+      }
+
       this.currentConfig = config;
-      vscode.window.showInformationMessage(`Successfully connected to IvorySQL (${config.host}:${config.port}/${config.database})`);
+      vscode.window.showInformationMessage(`Successfully connected to IvorySQL Oracle Mode (${config.host}:${config.port}/${config.database})`);
       return true;
     } catch (err: any) {
       vscode.window.showErrorMessage(`IvorySQL Connection Error: ${err.message}`);

@@ -1,3 +1,4 @@
+-- IvorySQL PL/iSQL Package Body Sample
 CREATE OR REPLACE PACKAGE BODY emp_pkg IS
 
   PROCEDURE add_employee(
@@ -25,8 +26,6 @@ CREATE OR REPLACE PACKAGE BODY emp_pkg IS
     FROM employees
     WHERE employee_id = p_emp_id;
 
-    dbms_output.put_line('Retrieved salary for employee ID ' || p_emp_id || ': ' || v_salary);
-
     RETURN v_salary;
   EXCEPTION
     WHEN NO_DATA_FOUND THEN
@@ -43,4 +42,3 @@ CREATE OR REPLACE PACKAGE BODY emp_pkg IS
   END print_employee_info;
 
 END emp_pkg;
-
