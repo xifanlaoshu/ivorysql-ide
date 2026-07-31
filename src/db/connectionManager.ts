@@ -137,11 +137,25 @@ export class IvoryDbManager {
   public async getSchemaPackages(schemaName: string): Promise<string[]> {
     if (!this.pool) return [];
     try {
+      // 方式 1: 查询 Oracle 兼容视图 all_source / user_source
       const res = await this.query(
-        `SELECT DISTINCT name FROM all_source WHERE owner = upper($1) AND type IN ('PACKAGE', 'PACKAGE BODY') ORDER BY name`,
+        `SELECT DISTINCT name FROM all_source WHERE (upper(owner) = upper($1) OR owner = $1) AND type IN ('PACKAGE', 'PACKAGE BODY') ORDER BY name`,
         [schemaName]
       );
-      return res.rows.map((r: any) => r.name);
+      if (res.rows && res.rows.length > 0) {
+        return res.rows.map((r: any) => r.name);
+      }
+
+      // 方式 2: 降级查询 sys/pg_catalog 中包头包体记录
+      const pgRes = await this.query(
+        `SELECT DISTINCT p.proname as name
+         FROM pg_proc p 
+         JOIN pg_namespace n ON p.pronamespace = n.oid 
+         WHERE upper(n.nspname) = upper($1) 
+         ORDER BY name`,
+        [schemaName]
+      );
+      return pgRes.rows.map((r: any) => r.name);
     } catch (e) {
       return [];
     }
