@@ -65,14 +65,15 @@ export class IvoryDbManager {
     }
     const client = await this.pool.connect();
     try {
-      // 尝试自适应设置 IvorySQL 5.x 官方 Oracle 方言模式与 sys 系统架构路径
+      // 100% 安全自适应探针：独立隔离每个 SET 指令，绝不向外抛出任何 GUC 参数不存在错误
       try {
         await client.query("SET ivorysql.compatible_mode = 'oracle'");
-      } catch (e) {
-        try {
-          await client.query("SET db_dialect = 'oracle'");
-        } catch (e2) {}
-      }
+      } catch (e) {}
+
+      try {
+        await client.query("SET db_dialect = 'oracle'");
+      } catch (e) {}
+
       try {
         await client.query("SET search_path = sys, pg_catalog, public");
       } catch (e) {}
