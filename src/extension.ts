@@ -69,7 +69,6 @@ BEGIN
 
   DBMS_OUTPUT.PUT_LINE('✅ [DEBUG SESSION FINISHED]');
 END;
-/
 `;
 
     const tempDir = os.tmpdir();
@@ -407,7 +406,7 @@ END;
       ? editor.document.lineAt(editor.selection.active.line).text
       : editor.document.getText(editor.selection);
 
-    sql = sql.trim();
+    sql = sql.trim().replace(/\/+\s*$/g, '').trim();
     if (!sql) return;
 
     try {
@@ -533,9 +532,9 @@ END;
     }
 
     const document = editor.document;
-    const content = document.getText();
+    let codeToDeploy = document.getText().trim().replace(/\/+\s*$/g, '').trim();
 
-    const match = content.match(/CREATE\s+(?:OR\s+REPLACE\s+)?(PACKAGE(?:\s+BODY)?|PROCEDURE|FUNCTION)\s+([a-zA-Z0-9_"\.]+)/i);
+    const match = codeToDeploy.match(/CREATE\s+(?:OR\s+REPLACE\s+)?(PACKAGE(?:\s+BODY)?|PROCEDURE|FUNCTION)\s+([a-zA-Z0-9_"\.]+)/i);
     const objectType = match ? (match[1].toUpperCase() as any) : 'PACKAGE';
     const objectName = match ? match[2] : path.basename(document.fileName, path.extname(document.fileName));
 
@@ -597,11 +596,7 @@ END;
     try {
       diagnosticsCollection.clear();
 
-      let cleanContent = content
-        .replace(/^\s*\/\s*$/gm, '')
-        .trim();
-
-      await dbManager.query(cleanContent);
+      await dbManager.query(codeToDeploy);
 
       // 提取目标 Schema (若显式指定如 hr.emp_pkg，则提取 hr，否则显示当前活动 Schema)
       const targetSchema = objectName.includes('.') ? objectName.split('.')[0] : 'public (Default Schema)';
