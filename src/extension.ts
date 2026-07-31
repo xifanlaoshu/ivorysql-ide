@@ -136,6 +136,38 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // 反向拉取包头/包体/存储过程 DDL 源码并快速开窗编辑命令
+  const openSourceCmd = vscode.commands.registerCommand('ivorysql.openPackageSource', async (schemaName: string, objectName: string, objectType: 'PACKAGE' | 'PACKAGE BODY' | 'PROCEDURE' | 'FUNCTION') => {
+    const dbManager = IvoryDbManager.getInstance();
+    if (!dbManager.isConnected()) {
+      vscode.window.showWarningMessage('未连接数据库，请先连接 IvorySQL 实例。');
+      return;
+    }
+
+    try {
+      let code = await dbManager.getDbSourceCode(schemaName, objectName, objectType);
+      if (!code) {
+        // 提供缺省模板
+        if (objectType === 'PACKAGE') {
+          code = `-- IvorySQL PL/iSQL Package Header Specification: ${objectName}\nCREATE OR REPLACE PACKAGE ${objectName} IS\n  -- Add procedure/function declarations here\nEND ${objectName};\n`;
+        } else if (objectType === 'PACKAGE BODY') {
+          code = `-- IvorySQL PL/iSQL Package Body Implementation: ${objectName}\nCREATE OR REPLACE PACKAGE BODY ${objectName} IS\n  -- Add procedure/function bodies here\nEND ${objectName};\n`;
+        } else {
+          code = `-- IvorySQL PL/iSQL ${objectType}: ${objectName}\nCREATE OR REPLACE ${objectType} ${objectName} AS $$\nBEGIN\n  NULL;\nEND;\n$$ LANGUAGE plpgsql;\n`;
+        }
+      }
+
+      const doc = await vscode.workspace.openTextDocument({
+        content: code,
+        language: 'plisql'
+      });
+      await vscode.window.showTextDocument(doc);
+      vscode.window.showInformationMessage(`[IvorySQL Source Retrieved] 已调出 ${objectType} "${objectName}" 源码！您可以直接修改并按 F8 编译覆盖。`);
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Open Source Error: ${err.message}`);
+    }
+  });
+
   // 8. 检测当前连接的 Oracle 兼容模式状态命令
   const checkOracleModeCmd = vscode.commands.registerCommand('ivorysql.checkOracleMode', async () => {
     const dbManager = IvoryDbManager.getInstance();
@@ -457,6 +489,7 @@ export function activate(context: vscode.ExtensionContext) {
     addConnCmd,
     editConnCmd,
     connectSelectedCmd,
+    openSourceCmd,
     checkOracleModeCmd,
     debugScanCmd,
     r1Cmd, r2Cmd, r3Cmd, r4Cmd, r5Cmd, r6Cmd,

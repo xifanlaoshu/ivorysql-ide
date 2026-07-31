@@ -31,7 +31,7 @@ export class GitDbSyncManager {
       return { isSynced: true }; // 若未连接 DB，暂不做强阻断，仅在部署时校验
     }
 
-    const dbSource = await dbManager.getDbSourceCode(objectName, objectType);
+    const dbSource = await dbManager.getDbSourceCode('public', objectName, objectType);
     if (dbSource === null) {
       // 数据库中尚无此 Package/Procedure (第一次创建)
       return { isSynced: true };

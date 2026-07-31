@@ -87,24 +87,26 @@ export class IvoryDbManager {
   }
 
   /**
-   * 从 IvorySQL 数据库中读取指定 Package / 存储过程的最新底层源码
+   * 从 IvorySQL 数据库中读取指定 Package / 存储过程的最新底层源码 DDL
    */
-  public async getDbSourceCode(objectName: string, objectType: 'PACKAGE' | 'PACKAGE BODY' | 'PROCEDURE' | 'FUNCTION'): Promise<string | null> {
+  public async getDbSourceCode(schemaName: string, objectName: string, objectType: 'PACKAGE' | 'PACKAGE BODY' | 'PROCEDURE' | 'FUNCTION'): Promise<string | null> {
     if (!this.pool) {
       return null;
     }
     try {
+      // 1. 从 Oracle 兼容视图 all_source / user_source 提取源码
       const res = await this.query(
-        `SELECT text FROM all_source WHERE upper(name) = upper($1) AND upper(type) = upper($2) ORDER BY line`,
+        `SELECT text::text FROM sys.all_source WHERE upper(name::text) = upper($1) AND upper(type::text) = upper($2) ORDER BY line`,
         [objectName, objectType]
       );
       if (res.rows && res.rows.length > 0) {
         return res.rows.map((r: any) => r.text).join('');
       }
 
+      // 2. 从 pg_proc 系统表提取函数定义
       const funcRes = await this.query(
-        `SELECT pg_get_functiondef(p.oid) as src FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE upper(p.proname) = upper($1)`,
-        [objectName]
+        `SELECT pg_get_functiondef(p.oid) as src FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE upper(n.nspname) = upper($1) AND upper(p.proname) = upper($2)`,
+        [schemaName, objectName]
       );
       if (funcRes.rows && funcRes.rows.length > 0) {
         return funcRes.rows[0].src;
@@ -132,32 +134,44 @@ export class IvoryDbManager {
   }
 
   /**
-   * 2. 动态获取指定 Schema 下的 Packages (包头/包体)
+   * 2. 动态获取指定 Schema 下的 Packages (区分包头与包体标志)
    */
-  public async getSchemaPackages(schemaName: string): Promise<string[]> {
+  public async getSchemaPackagesDetails(schemaName: string): Promise<{ name: string; hasHeader: boolean; hasBody: boolean }[]> {
     if (!this.pool) return [];
     try {
-      // 100% 针对 IvorySQL 5.4 实测的终极 Package 检索 SQL (优先查询 pg_catalog.pg_package)
+      // 按指定 Schema 精确查出该 Schema 下的包头与包体结构
       const sql = `
-        SELECT DISTINCT upper(pkg_name) AS name FROM (
-          SELECT pkgname::text AS pkg_name FROM pg_catalog.pg_package
+        SELECT pkg_name, 
+               BOOL_OR(spec_flag) AS has_header, 
+               BOOL_OR(body_flag) AS has_body
+        FROM (
+          SELECT p.pkgname::text AS pkg_name, true AS spec_flag, false AS body_flag
+          FROM pg_catalog.pg_package p
+          JOIN pg_namespace n ON p.pkgnamespace = n.oid
+          WHERE upper(n.nspname::text) = upper($1)
           UNION ALL
-          SELECT name::text AS pkg_name FROM sys.all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
+          SELECT b.pkgname::text AS pkg_name, false AS spec_flag, true AS body_flag
+          FROM pg_catalog.pg_package_body b
+          JOIN pg_namespace n ON b.pkgnamespace = n.oid
+          WHERE upper(n.nspname::text) = upper($1)
           UNION ALL
-          SELECT name::text AS pkg_name FROM sys.user_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
-          UNION ALL
-          SELECT p.proname::text AS pkg_name 
-          FROM pg_proc p 
-          JOIN pg_namespace n ON p.pronamespace = n.oid 
-          WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname != 'information_schema'
-        ) combined_pkgs WHERE pkg_name IS NOT NULL AND upper(pkg_name) NOT LIKE 'PG_%' AND upper(pkg_name) NOT LIKE 'SYS_%' ORDER BY name
+          SELECT name::text AS pkg_name, 
+                 (type::text = 'PACKAGE') AS spec_flag, 
+                 (type::text = 'PACKAGE BODY') AS body_flag
+          FROM sys.all_source
+          WHERE upper(owner::text) = upper($1) AND type IN ('PACKAGE', 'PACKAGE BODY')
+        ) t WHERE pkg_name IS NOT NULL GROUP BY pkg_name ORDER BY pkg_name
       `;
-      const res = await this.query(sql);
-      return res.rows.map((r: any) => r.name);
+      const res = await this.query(sql, [schemaName]);
+      return res.rows.map((r: any) => ({
+        name: r.pkg_name,
+        hasHeader: !!r.has_header,
+        hasBody: !!r.has_body
+      }));
     } catch (e) {
       try {
-        const fallbackRes = await this.query(`SELECT DISTINCT upper(pkgname::text) AS name FROM pg_catalog.pg_package`);
-        return fallbackRes.rows.map((r: any) => r.name);
+        const fallback = await this.query(`SELECT pkgname::text AS name FROM pg_catalog.pg_package`);
+        return fallback.rows.map((r: any) => ({ name: r.name, hasHeader: true, hasBody: true }));
       } catch (e2) {
         return [];
       }

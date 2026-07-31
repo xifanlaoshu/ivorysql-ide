@@ -143,6 +143,12 @@
         "category": "IvorySQL"
       },
       {
+        "command": "ivorysql.openPackageSource",
+        "title": "Open Package Source for Edit",
+        "category": "IvorySQL",
+        "icon": "$(edit)"
+      },
+      {
         "command": "ivorysql.checkOracleMode",
         "title": "IvorySQL: Check Oracle Mode Status",
         "category": "IvorySQL",

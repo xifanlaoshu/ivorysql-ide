@@ -6,7 +6,7 @@ export class ConnectionTreeItem extends vscode.TreeItem {
   constructor(
     public readonly label: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-    public readonly itemType: 'CONNECTION' | 'SCHEMA' | 'CATEGORY' | 'PACKAGE' | 'PROCEDURE' | 'FUNCTION' | 'TABLE' | 'VIEW' | 'SEQUENCE' | 'REPORT',
+    public readonly itemType: 'CONNECTION' | 'SCHEMA' | 'CATEGORY' | 'PACKAGE' | 'PACKAGE_HEADER' | 'PACKAGE_BODY' | 'PROCEDURE' | 'FUNCTION' | 'TABLE' | 'VIEW' | 'SEQUENCE' | 'REPORT',
     public readonly connection?: SavedConnection,
     public readonly extra?: any
   ) {
@@ -30,12 +30,38 @@ export class ConnectionTreeItem extends vscode.TreeItem {
     } else if (itemType === 'PACKAGE') {
       this.iconPath = new vscode.ThemeIcon('archive');
       this.contextValue = 'packageItem';
+    } else if (itemType === 'PACKAGE_HEADER') {
+      this.iconPath = new vscode.ThemeIcon('file-code');
+      this.contextValue = 'packageHeaderItem';
+      this.command = {
+        command: 'ivorysql.openPackageSource',
+        title: 'Open Package Header Source',
+        arguments: [extra?.schemaName, extra?.pkgName, 'PACKAGE']
+      };
+    } else if (itemType === 'PACKAGE_BODY') {
+      this.iconPath = new vscode.ThemeIcon('file-binary');
+      this.contextValue = 'packageBodyItem';
+      this.command = {
+        command: 'ivorysql.openPackageSource',
+        title: 'Open Package Body Source',
+        arguments: [extra?.schemaName, extra?.pkgName, 'PACKAGE BODY']
+      };
     } else if (itemType === 'PROCEDURE') {
       this.iconPath = new vscode.ThemeIcon('symbol-event');
       this.contextValue = 'procedureItem';
+      this.command = {
+        command: 'ivorysql.openPackageSource',
+        title: 'Open Procedure Source',
+        arguments: [extra?.schemaName, label, 'PROCEDURE']
+      };
     } else if (itemType === 'FUNCTION') {
       this.iconPath = new vscode.ThemeIcon('symbol-method');
       this.contextValue = 'functionItem';
+      this.command = {
+        command: 'ivorysql.openPackageSource',
+        title: 'Open Function Source',
+        arguments: [extra?.schemaName, label, 'FUNCTION']
+      };
     } else if (itemType === 'TABLE') {
       this.iconPath = new vscode.ThemeIcon('symbol-property');
       this.contextValue = 'tableItem';
@@ -123,23 +149,23 @@ export class ConnectionTreeProvider implements vscode.TreeDataProvider<Connectio
       const category = element.extra?.category;
 
       if (category === 'PACKAGES') {
-        const pkgs = await dbManager.getSchemaPackages(schemaName);
-        return pkgs.map(p => new ConnectionTreeItem(p, vscode.TreeItemCollapsibleState.None, 'PACKAGE', element.connection));
+        const pkgs = await dbManager.getSchemaPackagesDetails(schemaName);
+        return pkgs.map(p => new ConnectionTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed, 'PACKAGE', element.connection, { schemaName, pkgDetails: p }));
       } else if (category === 'PROCEDURES') {
         const procs = await dbManager.getSchemaProcedures(schemaName);
-        return procs.map(p => new ConnectionTreeItem(p, vscode.TreeItemCollapsibleState.None, 'PROCEDURE', element.connection));
+        return procs.map(p => new ConnectionTreeItem(p, vscode.TreeItemCollapsibleState.None, 'PROCEDURE', element.connection, { schemaName }));
       } else if (category === 'FUNCTIONS') {
         const funcs = await dbManager.getSchemaFunctions(schemaName);
-        return funcs.map(f => new ConnectionTreeItem(f, vscode.TreeItemCollapsibleState.None, 'FUNCTION', element.connection));
+        return funcs.map(f => new ConnectionTreeItem(f, vscode.TreeItemCollapsibleState.None, 'FUNCTION', element.connection, { schemaName }));
       } else if (category === 'TABLES') {
         const tables = await dbManager.getSchemaTables(schemaName);
-        return tables.map(t => new ConnectionTreeItem(t, vscode.TreeItemCollapsibleState.None, 'TABLE', element.connection));
+        return tables.map(t => new ConnectionTreeItem(t, vscode.TreeItemCollapsibleState.None, 'TABLE', element.connection, { schemaName }));
       } else if (category === 'VIEWS') {
         const views = await dbManager.getSchemaViews(schemaName);
-        return views.map(v => new ConnectionTreeItem(v, vscode.TreeItemCollapsibleState.None, 'VIEW', element.connection));
+        return views.map(v => new ConnectionTreeItem(v, vscode.TreeItemCollapsibleState.None, 'VIEW', element.connection, { schemaName }));
       } else if (category === 'SEQUENCES') {
         const seqs = await dbManager.getSchemaSequences(schemaName);
-        return seqs.map(s => new ConnectionTreeItem(s, vscode.TreeItemCollapsibleState.None, 'SEQUENCE', element.connection));
+        return seqs.map(s => new ConnectionTreeItem(s, vscode.TreeItemCollapsibleState.None, 'SEQUENCE', element.connection, { schemaName }));
       } else if (category === 'REPORTS') {
         return [
           new ConnectionTreeItem('表空间与存储占用 (Tablespace Report)', vscode.TreeItemCollapsibleState.None, 'REPORT', element.connection, { commandId: 'ivorysql.reportTablespaces' }),
@@ -150,6 +176,21 @@ export class ConnectionTreeProvider implements vscode.TreeDataProvider<Connectio
           new ConnectionTreeItem('缓存与索引命中率 (Hit Ratio)', vscode.TreeItemCollapsibleState.None, 'REPORT', element.connection, { commandId: 'ivorysql.reportHitRatio' })
         ];
       }
+    }
+
+    if (element.itemType === 'PACKAGE' && element.connection) {
+      const schemaName = element.extra?.schemaName || 'public';
+      const pkgName = element.label;
+      const details = element.extra?.pkgDetails;
+
+      const children: ConnectionTreeItem[] = [];
+      if (!details || details.hasHeader) {
+        children.push(new ConnectionTreeItem('Specification (包头 .pkh)', vscode.TreeItemCollapsibleState.None, 'PACKAGE_HEADER', element.connection, { schemaName, pkgName }));
+      }
+      if (!details || details.hasBody) {
+        children.push(new ConnectionTreeItem('Body (包体 .pkb)', vscode.TreeItemCollapsibleState.None, 'PACKAGE_BODY', element.connection, { schemaName, pkgName }));
+      }
+      return children;
     }
 
     return [];
