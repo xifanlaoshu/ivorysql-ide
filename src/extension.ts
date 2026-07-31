@@ -46,8 +46,8 @@ export function activate(context: vscode.ExtensionContext) {
       const match = text.match(/CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+(?:BODY\s+)?([a-zA-Z0-9_]+)/i);
       if (match) pkgName = match[1];
 
-      // 精准提取当前 Package 内的过程或函数定义及其形参列表
-      const procMatch = text.match(/PROCEDURE\s+([a-zA-Z0-9_]+)\s*\(([^)]*)\)/i);
+      // 强力匹配支持跨多行以及 IN / OUT 修饰符的过程声明
+      const procMatch = text.match(/PROCEDURE\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)/i);
       if (procMatch) {
         procName = procMatch[1];
         paramListText = procMatch[2].trim();
@@ -66,24 +66,55 @@ export function activate(context: vscode.ExtensionContext) {
       const declareLines: string[] = [];
       const callLines: string[] = [];
 
-      rawParams.forEach((paramStr, idx) => {
-        const parts = paramStr.trim().split(/\s+/);
+      rawParams.forEach((paramStr) => {
+        // 清洗多余换行与制表符
+        const cleanParam = paramStr.replace(/[\r\n\t]+/g, ' ').trim();
+        if (!cleanParam) return;
+
+        // 匹配格式: p_tenant_id  IN  VARCHAR2  或 p_permission_id OUT VARCHAR2
+        const parts = cleanParam.split(/\s+/);
         if (parts.length >= 2) {
           const pName = parts[0];
-          const pType = parts[1].toUpperCase();
+          let pType = '';
+          let isOut = false;
+
+          // 识别并跳过 IN / OUT / IN OUT 修饰符
+          for (let i = 1; i < parts.length; i++) {
+            const token = parts[i].toUpperCase();
+            if (token === 'IN' || token === 'OUT' || token === 'INOUT') {
+              if (token.includes('OUT')) isOut = true;
+              continue;
+            }
+            pType = token;
+            break;
+          }
+
+          if (!pType) pType = parts[parts.length - 1].toUpperCase();
+
           const varName = `v_${pName.replace(/^p_/i, '')}`;
-          let defaultVal = "'Test Value'";
+          let defaultVal = "'00000000-0000-0000-0000-000000000001'";
+          
+          if (pName.includes('code')) defaultVal = "'PERM_MANAGE'";
+          else if (pName.includes('name')) defaultVal = "'权限管理'";
+          else if (pName.includes('resource')) defaultVal = "'USER_RESOURCE'";
+          else if (pName.includes('action')) defaultVal = "'READ_WRITE'";
+          else if (pName.includes('description')) defaultVal = "'测试权限说明'";
+
           if (pType.includes('NUMBER') || pType.includes('INT')) defaultVal = '1001';
           else if (pType.includes('DATE')) defaultVal = 'SYSDATE';
 
-          declareLines.push(`  ${varName.padEnd(16)} ${pType} := ${defaultVal};`);
-          callLines.push(`${pName} => ${varName}`);
+          if (isOut) {
+            declareLines.push(`  ${varName.padEnd(20)} ${pType}(100); -- OUT 输出参数`);
+          } else {
+            declareLines.push(`  ${varName.padEnd(20)} ${pType}(100) := ${defaultVal};`);
+          }
+          callLines.push(`    ${pName.padEnd(20)} => ${varName}`);
         }
       });
 
       if (declareLines.length > 0) {
         declareVars = declareLines.join('\n');
-        callParams = callLines.join(', ');
+        callParams = callLines.join(',\n');
       }
     }
 
@@ -94,7 +125,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const debugHarness = `-- ====================================================================
 -- IvorySQL PL/iSQL Real-time Package Debug & Test Harness: ${pkgName}.${procName}
--- 提示: 选中下方代码按下 F9 即可运行测试，并实时捕获下方高亮调试 Log
+-- 提示: 选中下方代码按下 F9 即可运行测试，并在下方实时捕获调试 Log
 -- ====================================================================
 DECLARE
   -- 自动解析提取的测试变量:
@@ -105,7 +136,9 @@ BEGIN
   DBMS_OUTPUT.PUT_LINE('==============================================');
 
   -- 调用包内过程 (${procName}):
-  ${pkgName}.${procName}(${callParams});
+  ${pkgName}.${procName}(
+${callParams}
+  );
 
   DBMS_OUTPUT.PUT_LINE('✅ [DEBUG SESSION FINISHED]');
 END;
