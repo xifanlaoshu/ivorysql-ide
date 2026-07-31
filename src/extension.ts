@@ -113,7 +113,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (res.fields && res.fields.length > 0) {
         const columns = res.fields.map((f: any) => f.name);
-        ResultSetWebview.showQueryResult(sql.substring(0, 30) + '...', columns, res.rows, res.rowCount, durationMs);
+        ResultSetWebview.showQueryResult(sql.substring(0, 30) + '...', null, columns, res.rows, res.rowCount, durationMs);
       } else {
         vscode.window.showInformationMessage(`[SQL Executed Successfully] Command completed in ${durationMs} ms. Rows affected: ${res.rowCount}`);
       }
@@ -142,7 +142,7 @@ export function activate(context: vscode.ExtensionContext) {
       const durationMs = Date.now() - startTime;
       const columns = res.fields.map((f: any) => f.name);
 
-      ResultSetWebview.showQueryResult(`SELECT * FROM ${item.label}`, columns, res.rows, res.rowCount, durationMs);
+      ResultSetWebview.showQueryResult(`SELECT * FROM ${item.label}`, item.label, columns, res.rows, res.rowCount, durationMs);
     } catch (err: any) {
       vscode.window.showErrorMessage(`Select Top 100 Error: ${err.message}`);
     }
@@ -160,7 +160,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
       const columns = ['pid', 'usename', 'datname', 'client_addr', 'state', 'query'];
-      ResultSetWebview.showQueryResult('Active Database Sessions', columns, sessions, sessions.length, 0);
+      ResultSetWebview.showQueryResult('Active Database Sessions', null, columns, sessions, sessions.length, 0);
     } catch (err: any) {
       vscode.window.showErrorMessage(`Show Active Sessions Error: ${err.message}`);
     }

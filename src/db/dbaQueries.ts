@@ -18,7 +18,7 @@ export class DbaQueryRunner {
         pg_size_pretty(pg_database_size(current_database())) AS used_size;
     `;
     const res = await db.query(sql);
-    ResultSetWebview.showQueryResult('Tablespace & Disk Storage Report', ['tablespace_name', 'used_size'], res.rows, res.rowCount, 0);
+    ResultSetWebview.showQueryResult('Tablespace & Disk Storage Report', null, ['tablespace_name', 'used_size'], res.rows, res.rowCount, 0);
   }
 
   /**
@@ -52,7 +52,7 @@ export class DbaQueryRunner {
       WHERE NOT blocked_locks.granted;
     `;
     const res = await db.query(sql);
-    ResultSetWebview.showQueryResult('Lock & Deadlock Monitor Report', ['blocked_pid', 'blocked_user', 'blocking_pid', 'blocking_user', 'blocked_statement', 'current_statement_in_blocking_process'], res.rows, res.rowCount, 0);
+    ResultSetWebview.showQueryResult('Lock & Deadlock Monitor Report', null, ['blocked_pid', 'blocked_user', 'blocking_pid', 'blocking_user', 'blocked_statement', 'current_statement_in_blocking_process'], res.rows, res.rowCount, 0);
   }
 
   /**
@@ -74,7 +74,7 @@ export class DbaQueryRunner {
       LIMIT 10;
     `;
     const res = await db.query(sql);
-    ResultSetWebview.showQueryResult('Top Slow Queries Report', ['pid', 'usename', 'client_addr', 'duration', 'state', 'query'], res.rows, res.rowCount, 0);
+    ResultSetWebview.showQueryResult('Top Slow Queries Report', null, ['pid', 'usename', 'client_addr', 'duration', 'state', 'query'], res.rows, res.rowCount, 0);
   }
 
   /**
@@ -93,7 +93,7 @@ export class DbaQueryRunner {
       ORDER BY schema_name, object_name;
     `;
     const res = await db.query(sql);
-    ResultSetWebview.showQueryResult('Database Objects Inventory Report', ['schema_name', 'object_name', 'object_type'], res.rows, res.rowCount, 0);
+    ResultSetWebview.showQueryResult('Database Objects Inventory Report', null, ['schema_name', 'object_name', 'object_type'], res.rows, res.rowCount, 0);
   }
 
   /**
@@ -112,7 +112,7 @@ export class DbaQueryRunner {
       ORDER BY connection_count DESC;
     `;
     const res = await db.query(sql);
-    ResultSetWebview.showQueryResult('Session & Client Distribution Report', ['client_ip', 'usename', 'state', 'connection_count'], res.rows, res.rowCount, 0);
+    ResultSetWebview.showQueryResult('Session & Client Distribution Report', null, ['client_ip', 'usename', 'state', 'connection_count'], res.rows, res.rowCount, 0);
   }
 
   /**
@@ -132,6 +132,6 @@ export class DbaQueryRunner {
       FROM pg_statio_user_indexes;
     `;
     const res = await db.query(sql);
-    ResultSetWebview.showQueryResult('Cache & Index Hit Ratio Report', ['metric_name', 'ratio'], res.rows, res.rowCount, 0);
+    ResultSetWebview.showQueryResult('Cache & Index Hit Ratio Report', null, ['metric_name', 'ratio'], res.rows, res.rowCount, 0);
   }
 }
