@@ -72,7 +72,39 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage(`Saved connection: ${name}`);
   });
 
-  // 6. 连接选中的数据库环境
+  // 4. 编辑/修改已有的数据库连接参数
+  const editConnCmd = vscode.commands.registerCommand('ivorysql.editConnection', async (item?: ConnectionTreeItem) => {
+    if (!item || !item.connection) return;
+
+    const oldConn = item.connection;
+    const name = await vscode.window.showInputBox({ prompt: 'Connection Name', value: oldConn.name });
+    if (!name) return;
+    const host = await vscode.window.showInputBox({ prompt: 'IvorySQL Host', value: oldConn.host });
+    if (!host) return;
+    const portStr = await vscode.window.showInputBox({ prompt: 'IvorySQL Port', value: String(oldConn.port) });
+    if (!portStr) return;
+    const database = await vscode.window.showInputBox({ prompt: 'Database Name', value: oldConn.database });
+    if (!database) return;
+    const user = await vscode.window.showInputBox({ prompt: 'Database User', value: oldConn.user });
+    if (!user) return;
+    const password = await vscode.window.showInputBox({ prompt: 'Database Password', value: oldConn.password || '', password: true });
+
+    await connectionStore.saveConnection({
+      id: oldConn.id,
+      name,
+      host,
+      port: parseInt(portStr, 10),
+      database,
+      user,
+      password: password || '',
+      isCurrent: oldConn.isCurrent
+    });
+
+    treeProvider.refresh();
+    vscode.window.showInformationMessage(`Updated connection: ${name}`);
+  });
+
+  // 5. 连接选中的数据库环境
   const connectSelectedCmd = vscode.commands.registerCommand('ivorysql.connectSelected', async (item?: ConnectionTreeItem) => {
     const targetConn = item?.connection || connectionStore.getCurrentConnection();
     if (!targetConn) {
@@ -320,6 +352,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     addConnCmd,
+    editConnCmd,
     connectSelectedCmd,
     r1Cmd, r2Cmd, r3Cmd, r4Cmd, r5Cmd, r6Cmd,
     queryCmd,

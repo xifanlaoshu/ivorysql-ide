@@ -74,6 +74,11 @@
         "icon": "$(add)"
       },
       {
+        "command": "ivorysql.editConnection",
+        "title": "Edit Connection",
+        "icon": "$(edit)"
+      },
+      {
         "command": "ivorysql.refreshConnections",
         "title": "Refresh Connections",
         "icon": "$(refresh)"
@@ -178,6 +183,11 @@
       "view/item/context": [
         {
           "command": "ivorysql.connectSelected",
+          "when": "view == ivorysql-connections && viewItem == connectionItem",
+          "group": "inline"
+        },
+        {
+          "command": "ivorysql.editConnection",
           "when": "view == ivorysql-connections && viewItem == connectionItem",
           "group": "inline"
         },

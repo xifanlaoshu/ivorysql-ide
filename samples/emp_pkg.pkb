@@ -1,4 +1,3 @@
--- IvorySQL PL/iSQL Package Body Sample
 CREATE OR REPLACE PACKAGE BODY emp_pkg IS
 
   PROCEDURE add_employee(
