@@ -10,6 +10,8 @@ import { PlIsqlFormatter } from './formatter/plsqlFormatter';
 import { ResultSetWebview } from './views/resultSetWebview';
 import { DbTools } from './db/ddlGenerator';
 import { DbaQueryRunner } from './db/dbaQueries';
+import { PlIsqlHoverProvider } from './lsp/hoverProvider';
+import { PlIsqlDefinitionProvider } from './lsp/definitionProvider';
 
 let diagnosticsCollection: vscode.DiagnosticCollection;
 
@@ -31,7 +33,19 @@ export function activate(context: vscode.ExtensionContext) {
     new PlIsqlFormatter()
   );
 
-  // 3. 动态添加连接命令
+  // 3. 注册代码悬停表结构浮窗 (Hover Docs)
+  const hoverProvider = vscode.languages.registerHoverProvider(
+    'plisql',
+    new PlIsqlHoverProvider()
+  );
+
+  // 4. 注册 F12 / Ctrl+Click 快捷跳转对象定义 (Go to Definition)
+  const definitionProvider = vscode.languages.registerDefinitionProvider(
+    'plisql',
+    new PlIsqlDefinitionProvider()
+  );
+
+  // 5. 动态添加连接命令
   const addConnCmd = vscode.commands.registerCommand('ivorysql.addConnection', async () => {
     const name = await vscode.window.showInputBox({ prompt: 'Connection Name', value: 'Local IvorySQL' });
     if (!name) return;
@@ -58,7 +72,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage(`Saved connection: ${name}`);
   });
 
-  // 4. 连接选中的数据库环境
+  // 6. 连接选中的数据库环境
   const connectSelectedCmd = vscode.commands.registerCommand('ivorysql.connectSelected', async (item?: ConnectionTreeItem) => {
     const targetConn = item?.connection || connectionStore.getCurrentConnection();
     if (!targetConn) {
@@ -80,7 +94,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 5. 固化 DBA 诊断报告命令绑定
+  // 7. 固化 DBA 诊断报告命令绑定
   const r1Cmd = vscode.commands.registerCommand('ivorysql.reportTablespaces', () => DbaQueryRunner.runTablespaceReport());
   const r2Cmd = vscode.commands.registerCommand('ivorysql.reportLocks', () => DbaQueryRunner.runLockMonitorReport());
   const r3Cmd = vscode.commands.registerCommand('ivorysql.reportSlowQueries', () => DbaQueryRunner.runSlowQueriesReport());
@@ -88,7 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
   const r5Cmd = vscode.commands.registerCommand('ivorysql.reportSessions', () => DbaQueryRunner.runSessionStatsReport());
   const r6Cmd = vscode.commands.registerCommand('ivorysql.reportHitRatio', () => DbaQueryRunner.runCacheHitRatioReport());
 
-  // 6. 执行选中的 SQL / 当前文本块 (F9 或 Ctrl+Enter)
+  // 8. 执行选中的 SQL / 当前文本块 (F9 或 Ctrl+Enter)
   const queryCmd = vscode.commands.registerCommand('ivorysql.executeQuery', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
@@ -122,7 +136,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 7. 提取与查看 Table DDL 语句
+  // 9. 提取与查看 Table DDL 语句
   const ddlCmd = vscode.commands.registerCommand('ivorysql.viewTableDdl', async (item?: ConnectionTreeItem) => {
     if (!item || !item.label) return;
     const ddl = await DbTools.generateTableDdl(item.label);
@@ -130,7 +144,7 @@ export function activate(context: vscode.ExtensionContext) {
     await vscode.window.showTextDocument(doc);
   });
 
-  // 8. 查看表数据前 100 条记录 (Select Top 100 Rows)
+  // 10. 查看表数据前 100 条记录 (Select Top 100 Rows)
   const selectTopCmd = vscode.commands.registerCommand('ivorysql.selectTop100', async (item?: ConnectionTreeItem) => {
     if (!item || !item.label) return;
     const dbManager = IvoryDbManager.getInstance();
@@ -148,7 +162,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 9. 活跃会话管理与监控 (Show Active Sessions)
+  // 11. 活跃会话管理与监控 (Show Active Sessions)
   const activeSessionsCmd = vscode.commands.registerCommand('ivorysql.showActiveSessions', async () => {
     const dbManager = IvoryDbManager.getInstance();
     if (!dbManager.isConnected()) return;
@@ -166,7 +180,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 10. 删除连接命令与刷新
+  // 12. 删除连接命令与刷新
   const deleteConnCmd = vscode.commands.registerCommand('ivorysql.deleteConnection', async (item?: ConnectionTreeItem) => {
     if (item && item.connection) {
       await connectionStore.deleteConnection(item.connection.id);
@@ -179,7 +193,7 @@ export function activate(context: vscode.ExtensionContext) {
     treeProvider.refresh();
   });
 
-  // 11. 快捷键 Alt+O 切换 Package Header / Body
+  // 13. 快捷键 Alt+O 切换 Package Header / Body
   const switchCmd = vscode.commands.registerCommand('ivorysql.switchHeaderBody', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
@@ -208,7 +222,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 12. Git-First 部署与编译命令 (F8)
+  // 14. Git-First 部署与编译命令 (F8)
   const deployCmd = vscode.commands.registerCommand('ivorysql.deployToDb', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -260,7 +274,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 13. 注册动态 Intellisense 智能补全器
+  // 15. 注册动态 Intellisense 智能补全器
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     'plisql',
     new PlIsqlCompletionItemProvider(),
@@ -280,6 +294,8 @@ export function activate(context: vscode.ExtensionContext) {
     switchCmd,
     deployCmd,
     formatterProvider,
+    hoverProvider,
+    definitionProvider,
     completionProvider,
     diagnosticsCollection
   );
