@@ -94,18 +94,39 @@ export class IvoryDbManager {
       return null;
     }
     try {
-      // 1. 从 Oracle 兼容视图 all_source / user_source 提取源码
+      if (objectType === 'PACKAGE') {
+        const res = await this.query(
+          `SELECT ('CREATE OR REPLACE PACKAGE ' || p.pkgname::text || ' IS\n' || p.pkgsrc::text) AS text
+           FROM pg_catalog.pg_package p
+           JOIN pg_namespace n ON p.pkgnamespace = n.oid
+           WHERE upper(n.nspname::text) = upper($1) AND upper(p.pkgname::text) = upper($2)`,
+          [schemaName, objectName]
+        );
+        if (res.rows && res.rows.length > 0) return res.rows[0].text;
+      } else if (objectType === 'PACKAGE BODY') {
+        const res = await this.query(
+          `SELECT ('CREATE OR REPLACE PACKAGE BODY ' || p.pkgname::text || ' IS\n' || b.bodysrc::text) AS text
+           FROM pg_catalog.pg_package_body b
+           JOIN pg_catalog.pg_package p ON b.pkgoid = p.oid
+           JOIN pg_namespace n ON p.pkgnamespace = n.oid
+           WHERE upper(n.nspname::text) = upper($1) AND upper(p.pkgname::text) = upper($2)`,
+          [schemaName, objectName]
+        );
+        if (res.rows && res.rows.length > 0) return res.rows[0].text;
+      }
+
+      // 降级：从 sys.all_source 提取源码
       const res = await this.query(
-        `SELECT text::text FROM sys.all_source WHERE upper(name::text) = upper($1) AND upper(type::text) = upper($2) ORDER BY line`,
-        [objectName, objectType]
+        `SELECT text::text FROM sys.all_source WHERE upper(owner::text) = upper($1) AND upper(name::text) = upper($2) AND upper(type::text) = upper($3) ORDER BY line`,
+        [schemaName, objectName, objectType]
       );
       if (res.rows && res.rows.length > 0) {
         return res.rows.map((r: any) => r.text).join('');
       }
 
-      // 2. 从 pg_proc 系统表提取函数定义
+      // 从 pg_proc 系统表提取函数定义
       const funcRes = await this.query(
-        `SELECT pg_get_functiondef(p.oid) as src FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE upper(n.nspname) = upper($1) AND upper(p.proname) = upper($2)`,
+        `SELECT pg_get_functiondef(p.oid) as src FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE upper(n.nspname::text) = upper($1) AND upper(p.proname::text) = upper($2)`,
         [schemaName, objectName]
       );
       if (funcRes.rows && funcRes.rows.length > 0) {
@@ -139,22 +160,16 @@ export class IvoryDbManager {
   public async getSchemaPackagesDetails(schemaName: string): Promise<{ name: string; hasHeader: boolean; hasBody: boolean }[]> {
     if (!this.pool) return [];
     try {
-      // 1. 优先从 pg_catalog.pg_package 与 pg_package_body 提取属于当前 Schema 的包
+      // 实测验证：基于 p.oid = b.pkgoid 外键物理关联，精确提取特定 Schema 下的包头与包体结构
       const sql = `
-        SELECT pkg_name, 
-               BOOL_OR(spec_flag) AS has_header, 
-               BOOL_OR(body_flag) AS has_body
-        FROM (
-          SELECT p.pkgname::text AS pkg_name, true AS spec_flag, false AS body_flag
-          FROM pg_catalog.pg_package p
-          JOIN pg_namespace n ON p.pkgnamespace = n.oid
-          WHERE upper(n.nspname::text) = upper($1)
-          UNION ALL
-          SELECT b.pkgname::text AS pkg_name, false AS spec_flag, true AS body_flag
-          FROM pg_catalog.pg_package_body b
-          JOIN pg_namespace n ON b.pkgnamespace = n.oid
-          WHERE upper(n.nspname::text) = upper($1)
-        ) t WHERE pkg_name IS NOT NULL GROUP BY pkg_name ORDER BY pkg_name
+        SELECT p.pkgname::text AS pkg_name,
+               true AS has_header,
+               (b.oid IS NOT NULL) AS has_body
+        FROM pg_catalog.pg_package p
+        JOIN pg_namespace n ON p.pkgnamespace = n.oid
+        LEFT JOIN pg_catalog.pg_package_body b ON p.oid = b.pkgoid
+        WHERE upper(n.nspname::text) = upper($1)
+        ORDER BY p.pkgname
       `;
       const res = await this.query(sql, [schemaName]);
       if (res.rows && res.rows.length > 0) {
@@ -165,7 +180,7 @@ export class IvoryDbManager {
         }));
       }
 
-      // 2. 降级从 sys.all_source 中提取属于当前 Schema 的包
+      // 降级备用：从 sys.all_source 中提取
       const fallbackSql = `
         SELECT name::text AS pkg_name, 
                BOOL_OR(type::text = 'PACKAGE') AS has_header, 
