@@ -99,6 +99,18 @@ export class IvoryDbManager {
         `);
       } catch (e) {}
 
+        try {
+        await client.query(`
+          CREATE OR REPLACE PROCEDURE raise_application_error(
+            p_code IN NUMBER,
+            p_msg  IN VARCHAR2
+          ) AS
+          BEGIN
+            RAISE EXCEPTION 'Oracle Exception [%]: %', p_code, p_msg;
+          END;
+        `);
+      } catch (e) {}
+
       try {
         await client.query("SET db_dialect = 'oracle'");
       } catch (e) {}
