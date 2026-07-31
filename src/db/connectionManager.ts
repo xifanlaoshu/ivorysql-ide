@@ -134,12 +134,12 @@ export class IvoryDbManager {
   }
 
   /**
-   * 2. 动态获取指定 Schema 下的 Packages (区分包头与包体标志)
+   * 2. 动态获取指定 Schema 下的 Packages (区分包头与包体标志，严格按 Schema 物理隔离)
    */
   public async getSchemaPackagesDetails(schemaName: string): Promise<{ name: string; hasHeader: boolean; hasBody: boolean }[]> {
     if (!this.pool) return [];
     try {
-      // 按指定 Schema 精确查出该 Schema 下的包头与包体结构
+      // 1. 优先从 pg_catalog.pg_package 与 pg_package_body 提取属于当前 Schema 的包
       const sql = `
         SELECT pkg_name, 
                BOOL_OR(spec_flag) AS has_header, 
@@ -154,27 +154,34 @@ export class IvoryDbManager {
           FROM pg_catalog.pg_package_body b
           JOIN pg_namespace n ON b.pkgnamespace = n.oid
           WHERE upper(n.nspname::text) = upper($1)
-          UNION ALL
-          SELECT name::text AS pkg_name, 
-                 (type::text = 'PACKAGE') AS spec_flag, 
-                 (type::text = 'PACKAGE BODY') AS body_flag
-          FROM sys.all_source
-          WHERE upper(owner::text) = upper($1) AND type IN ('PACKAGE', 'PACKAGE BODY')
         ) t WHERE pkg_name IS NOT NULL GROUP BY pkg_name ORDER BY pkg_name
       `;
       const res = await this.query(sql, [schemaName]);
-      return res.rows.map((r: any) => ({
+      if (res.rows && res.rows.length > 0) {
+        return res.rows.map((r: any) => ({
+          name: r.pkg_name,
+          hasHeader: !!r.has_header,
+          hasBody: !!r.has_body
+        }));
+      }
+
+      // 2. 降级从 sys.all_source 中提取属于当前 Schema 的包
+      const fallbackSql = `
+        SELECT name::text AS pkg_name, 
+               BOOL_OR(type::text = 'PACKAGE') AS has_header, 
+               BOOL_OR(type::text = 'PACKAGE BODY') AS has_body
+        FROM sys.all_source
+        WHERE upper(owner::text) = upper($1) AND type IN ('PACKAGE', 'PACKAGE BODY')
+        GROUP BY name ORDER BY name
+      `;
+      const fallbackRes = await this.query(fallbackSql, [schemaName]);
+      return fallbackRes.rows.map((r: any) => ({
         name: r.pkg_name,
         hasHeader: !!r.has_header,
         hasBody: !!r.has_body
       }));
     } catch (e) {
-      try {
-        const fallback = await this.query(`SELECT pkgname::text AS name FROM pg_catalog.pg_package`);
-        return fallback.rows.map((r: any) => ({ name: r.name, hasHeader: true, hasBody: true }));
-      } catch (e2) {
-        return [];
-      }
+      return [];
     }
   }
 
