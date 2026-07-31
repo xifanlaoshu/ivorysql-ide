@@ -37,35 +37,75 @@ export function activate(context: vscode.ExtensionContext) {
   // 快捷调起 Package 调试与生成 Debug 测试脚手架命令
   const debugPackageCmd = vscode.commands.registerCommand('ivorysql.debugPackage', async () => {
     const editor = vscode.window.activeTextEditor;
-    let pkgName = 'emp_pkg';
-    let procName = 'add_employee';
+    let pkgName = 'admin_definition_pkg';
+    let procName = 'create_permission';
+    let paramListText = '';
 
     if (editor) {
       const text = editor.document.getText();
       const match = text.match(/CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+(?:BODY\s+)?([a-zA-Z0-9_]+)/i);
       if (match) pkgName = match[1];
 
-      const procMatch = text.match(/PROCEDURE\s+([a-zA-Z0-9_]+)/i);
-      if (procMatch) procName = procMatch[1];
+      // 精准提取当前 Package 内的过程或函数定义及其形参列表
+      const procMatch = text.match(/PROCEDURE\s+([a-zA-Z0-9_]+)\s*\(([^)]*)\)/i);
+      if (procMatch) {
+        procName = procMatch[1];
+        paramListText = procMatch[2].trim();
+      } else {
+        const simpleProcMatch = text.match(/PROCEDURE\s+([a-zA-Z0-9_]+)/i);
+        if (simpleProcMatch) procName = simpleProcMatch[1];
+      }
+    }
+
+    // 智能解析形参生成变量声明与调用传参
+    let declareVars = '';
+    let callParams = '';
+
+    if (paramListText) {
+      const rawParams = paramListText.split(',');
+      const declareLines: string[] = [];
+      const callLines: string[] = [];
+
+      rawParams.forEach((paramStr, idx) => {
+        const parts = paramStr.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          const pName = parts[0];
+          const pType = parts[1].toUpperCase();
+          const varName = `v_${pName.replace(/^p_/i, '')}`;
+          let defaultVal = "'Test Value'";
+          if (pType.includes('NUMBER') || pType.includes('INT')) defaultVal = '1001';
+          else if (pType.includes('DATE')) defaultVal = 'SYSDATE';
+
+          declareLines.push(`  ${varName.padEnd(16)} ${pType} := ${defaultVal};`);
+          callLines.push(`${pName} => ${varName}`);
+        }
+      });
+
+      if (declareLines.length > 0) {
+        declareVars = declareLines.join('\n');
+        callParams = callLines.join(', ');
+      }
+    }
+
+    if (!declareVars) {
+      declareVars = `  v_code             VARCHAR2(100) := 'PERM_001';\n  v_name             VARCHAR2(100) := 'Debug Test Permission';`;
+      callParams = `p_code => v_code, p_name => v_name`;
     }
 
     const debugHarness = `-- ====================================================================
--- IvorySQL PL/iSQL Real-time Package Debug & Test Harness: ${pkgName}
+-- IvorySQL PL/iSQL Real-time Package Debug & Test Harness: ${pkgName}.${procName}
 -- 提示: 选中下方代码按下 F9 即可运行测试，并实时捕获下方高亮调试 Log
 -- ====================================================================
 DECLARE
-  -- 声明测试变量
-  v_emp_id   NUMBER := 1001;
-  v_emp_name VARCHAR2(100) := 'Debug Test User';
-  v_salary   NUMBER := 9500;
+  -- 自动解析提取的测试变量:
+${declareVars}
 BEGIN
   DBMS_OUTPUT.PUT_LINE('==============================================');
-  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG SESSION START] Package: ${pkgName}');
-  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG VARS] Emp ID: ' || v_emp_id || ', Name: ' || v_emp_name);
+  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG SESSION START] Package: ${pkgName}.${procName}');
   DBMS_OUTPUT.PUT_LINE('==============================================');
 
-  -- 调用包内过程进行调试测试:
-  ${pkgName}.${procName}(p_emp_id => v_emp_id, p_emp_name => v_emp_name, p_salary => v_salary);
+  -- 调用包内过程 (${procName}):
+  ${pkgName}.${procName}(${callParams});
 
   DBMS_OUTPUT.PUT_LINE('✅ [DEBUG SESSION FINISHED]');
 END;
