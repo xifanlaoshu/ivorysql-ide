@@ -2,7 +2,7 @@
 CREATE OR REPLACE PACKAGE emp_pkg IS
 
   -- 使用系统游标类型定义
-  TYPE emp_ref_cursor IS SYS_REFCURSOR;
+  TYPE emp_ref_cursor IS REF CURSOR;
 
   -- 过程与函数声明
   PROCEDURE add_employee(
