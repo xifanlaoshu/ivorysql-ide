@@ -46,14 +46,31 @@ export function activate(context: vscode.ExtensionContext) {
       const match = text.match(/CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+(?:BODY\s+)?([a-zA-Z0-9_]+)/i);
       if (match) pkgName = match[1];
 
-      // 强力匹配支持跨多行以及 IN / OUT 修饰符的过程声明
-      const procMatch = text.match(/PROCEDURE\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)/i);
-      if (procMatch) {
-        procName = procMatch[1];
-        paramListText = procMatch[2].trim();
+      // 1. 获取光标当前所在行附近或选中的文本
+      const cursorOffset = editor.document.offsetAt(editor.selection.active);
+      const textBeforeCursor = text.substring(0, cursorOffset);
+      const textAfterCursor = text.substring(cursorOffset);
+
+      // 2. 向上寻找最靠近当前光标的 PROCEDURE / FUNCTION 声明
+      const procHeaderMatches = Array.from(textBeforeCursor.matchAll(/PROCEDURE\s+([a-zA-Z0-9_]+)/gi));
+      if (procHeaderMatches.length > 0) {
+        const lastProcMatch = procHeaderMatches[procHeaderMatches.length - 1];
+        procName = lastProcMatch[1];
+
+        // 提取该过程从名称开始的完整形参签名段
+        const targetProcStartPos = lastProcMatch.index || 0;
+        const subContent = text.substring(targetProcStartPos);
+        const signatureMatch = subContent.match(/PROCEDURE\s+[a-zA-Z0-9_]+\s*\(([\s\S]*?)\)/i);
+        if (signatureMatch) {
+          paramListText = signatureMatch[1].trim();
+        }
       } else {
-        const simpleProcMatch = text.match(/PROCEDURE\s+([a-zA-Z0-9_]+)/i);
-        if (simpleProcMatch) procName = simpleProcMatch[1];
+        // 兜底方案：从全文件中寻找第一个过程
+        const procMatch = text.match(/PROCEDURE\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)/i);
+        if (procMatch) {
+          procName = procMatch[1];
+          paramListText = procMatch[2].trim();
+        }
       }
     }
 
