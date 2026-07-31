@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { IvoryDbManager } from './db/connectionManager';
 import { GitDbSyncManager } from './versionControl/syncManager';
 import { PlIsqlCompletionItemProvider } from './lsp/completionProvider';
@@ -25,10 +26,11 @@ export function activate(context: vscode.ExtensionContext) {
   // 新建单独 SQL 查询工作页命令
   const newSqlScriptCmd = vscode.commands.registerCommand('ivorysql.newSqlScript', async () => {
     const defaultTemplate = `-- IvorySQL PL/iSQL Query Window\n-- Press F9 or Ctrl+Enter to execute selected SQL query\n\nSELECT * FROM employees;\n`;
-    const doc = await vscode.workspace.openTextDocument({
-      content: defaultTemplate,
-      language: 'plisql'
-    });
+    const tempDir = os.tmpdir();
+    const tempFilePath = path.join(tempDir, `ivorysql_query_${Date.now()}.sql`);
+    fs.writeFileSync(tempFilePath, defaultTemplate, 'utf8');
+
+    const doc = await vscode.workspace.openTextDocument(tempFilePath);
     await vscode.window.showTextDocument(doc);
   });
 
@@ -178,11 +180,12 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
 
-      // 创建数据库最新源码的临时内存文档
-      const dbDoc = await vscode.workspace.openTextDocument({
-        content: dbCode,
-        language: 'plisql'
-      });
+      // 创建数据库最新源码的临时磁盘文档 (保持 isDirty = false，关闭不弹误报警告)
+      const extName = objectType === 'PACKAGE' ? '.pkh' : (objectType === 'PACKAGE BODY' ? '.pkb' : '.sql');
+      const tempFilePath = path.join(os.tmpdir(), `${objectName}${extName}`);
+      fs.writeFileSync(tempFilePath, dbCode, 'utf8');
+
+      const dbDoc = await vscode.workspace.openTextDocument(tempFilePath);
 
       // 2. 如果找到了匹配的本地源代码文件，自动调起 VS Code 原生 Diff 差异面板
       if (matchedLocalUri) {
