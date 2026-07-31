@@ -37,12 +37,18 @@ export function activate(context: vscode.ExtensionContext) {
   // 快捷调起 Package 调试与生成 Debug 测试脚手架命令
   const debugPackageCmd = vscode.commands.registerCommand('ivorysql.debugPackage', async () => {
     const editor = vscode.window.activeTextEditor;
-    let pkgName = 'admin_definition_pkg';
-    let procName = 'create_permission';
+    let schemaName = 'aurora_admin';
+    let pkgName = 'admin_user_pkg';
+    let procName = 'create_user';
     let paramListText = '';
 
     if (editor) {
       const text = editor.document.getText();
+      const schemaMatch = text.match(/SCHEMA\s+([a-zA-Z0-9_]+)/i) || text.match(/([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)/i);
+      if (schemaMatch && schemaMatch[1] && schemaMatch[1].toLowerCase() !== 'create' && schemaMatch[1].toLowerCase() !== 'package') {
+        schemaName = schemaMatch[1];
+      }
+
       const match = text.match(/CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+(?:BODY\s+)?([a-zA-Z0-9_]+)/i);
       if (match) pkgName = match[1];
 
@@ -144,16 +150,19 @@ export function activate(context: vscode.ExtensionContext) {
 -- IvorySQL PL/iSQL Real-time Package Debug & Test Harness: ${pkgName}.${procName}
 -- 提示: 选中下方代码按下 F9 即可运行测试，并在下方实时捕获调试 Log
 -- ====================================================================
+-- 自动设置目标 Schema 搜寻路径 (搜寻模式: ${schemaName})
+SET search_path = "${schemaName}", sys, public, pg_catalog;
+
 DECLARE
   -- 自动解析提取的测试变量:
 ${declareVars}
 BEGIN
   DBMS_OUTPUT.PUT_LINE('==============================================');
-  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG SESSION START] Package: ${pkgName}.${procName}');
+  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG SESSION START] Package: "${schemaName}"."${pkgName}".${procName}');
   DBMS_OUTPUT.PUT_LINE('==============================================');
 
-  -- 调用包内过程 (${procName}):
-  ${pkgName}.${procName}(
+  -- 调用包内过程 (${schemaName}.${pkgName}.${procName}):
+  "${schemaName}"."${pkgName}".${procName}(
 ${callParams}
   );
 
@@ -502,9 +511,10 @@ END;
     try {
       const startTime = Date.now();
 
-      // 自动开启 Oracle 兼容模式
+      // 自动开启 Oracle 兼容模式与注入动态 search_path，支持跨 Schema 访问
       try {
         await dbManager.query("SET ivorysql.compatible_mode = 'oracle'");
+        await dbManager.query("SET search_path = aurora_admin, sys, public, pg_catalog");
       } catch (e) {}
 
       const res = await dbManager.query(sql);
