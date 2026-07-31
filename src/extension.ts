@@ -9,6 +9,7 @@ import { ConnectionTreeProvider, ConnectionTreeItem } from './views/connectionTr
 import { PlIsqlFormatter } from './formatter/plsqlFormatter';
 import { ResultSetWebview } from './views/resultSetWebview';
 import { DbTools } from './db/ddlGenerator';
+import { DbaQueryRunner } from './db/dbaQueries';
 
 let diagnosticsCollection: vscode.DiagnosticCollection;
 
@@ -79,7 +80,15 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 5. 执行选中的 SQL / 当前文本块 (F9 或 Ctrl+Enter)
+  // 5. 固化 DBA 诊断报告命令绑定
+  const r1Cmd = vscode.commands.registerCommand('ivorysql.reportTablespaces', () => DbaQueryRunner.runTablespaceReport());
+  const r2Cmd = vscode.commands.registerCommand('ivorysql.reportLocks', () => DbaQueryRunner.runLockMonitorReport());
+  const r3Cmd = vscode.commands.registerCommand('ivorysql.reportSlowQueries', () => DbaQueryRunner.runSlowQueriesReport());
+  const r4Cmd = vscode.commands.registerCommand('ivorysql.reportInvalidObjects', () => DbaQueryRunner.runInvalidObjectsReport());
+  const r5Cmd = vscode.commands.registerCommand('ivorysql.reportSessions', () => DbaQueryRunner.runSessionStatsReport());
+  const r6Cmd = vscode.commands.registerCommand('ivorysql.reportHitRatio', () => DbaQueryRunner.runCacheHitRatioReport());
+
+  // 6. 执行选中的 SQL / 当前文本块 (F9 或 Ctrl+Enter)
   const queryCmd = vscode.commands.registerCommand('ivorysql.executeQuery', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
@@ -113,7 +122,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 6. 提取与查看 Table DDL 语句
+  // 7. 提取与查看 Table DDL 语句
   const ddlCmd = vscode.commands.registerCommand('ivorysql.viewTableDdl', async (item?: ConnectionTreeItem) => {
     if (!item || !item.label) return;
     const ddl = await DbTools.generateTableDdl(item.label);
@@ -121,7 +130,7 @@ export function activate(context: vscode.ExtensionContext) {
     await vscode.window.showTextDocument(doc);
   });
 
-  // 7. 查看表数据前 100 条记录 (Select Top 100 Rows)
+  // 8. 查看表数据前 100 条记录 (Select Top 100 Rows)
   const selectTopCmd = vscode.commands.registerCommand('ivorysql.selectTop100', async (item?: ConnectionTreeItem) => {
     if (!item || !item.label) return;
     const dbManager = IvoryDbManager.getInstance();
@@ -139,7 +148,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 8. 活跃会话管理与监控 (Show Active Sessions)
+  // 9. 活跃会话管理与监控 (Show Active Sessions)
   const activeSessionsCmd = vscode.commands.registerCommand('ivorysql.showActiveSessions', async () => {
     const dbManager = IvoryDbManager.getInstance();
     if (!dbManager.isConnected()) return;
@@ -157,7 +166,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 9. 删除连接命令与刷新
+  // 10. 删除连接命令与刷新
   const deleteConnCmd = vscode.commands.registerCommand('ivorysql.deleteConnection', async (item?: ConnectionTreeItem) => {
     if (item && item.connection) {
       await connectionStore.deleteConnection(item.connection.id);
@@ -170,7 +179,7 @@ export function activate(context: vscode.ExtensionContext) {
     treeProvider.refresh();
   });
 
-  // 10. 快捷键 Alt+O 切换 Package Header / Body
+  // 11. 快捷键 Alt+O 切换 Package Header / Body
   const switchCmd = vscode.commands.registerCommand('ivorysql.switchHeaderBody', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
@@ -199,7 +208,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 11. Git-First 部署与编译命令 (F8)
+  // 12. Git-First 部署与编译命令 (F8)
   const deployCmd = vscode.commands.registerCommand('ivorysql.deployToDb', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -251,7 +260,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // 12. 注册动态 Intellisense 智能补全器
+  // 13. 注册动态 Intellisense 智能补全器
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     'plisql',
     new PlIsqlCompletionItemProvider(),
@@ -261,6 +270,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     addConnCmd,
     connectSelectedCmd,
+    r1Cmd, r2Cmd, r3Cmd, r4Cmd, r5Cmd, r6Cmd,
     queryCmd,
     ddlCmd,
     selectTopCmd,

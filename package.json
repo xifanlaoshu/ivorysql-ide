@@ -102,6 +102,36 @@
         "icon": "$(table)"
       },
       {
+        "command": "ivorysql.reportTablespaces",
+        "title": "IvorySQL: Report - Tablespace & Disk Storage",
+        "category": "IvorySQL"
+      },
+      {
+        "command": "ivorysql.reportLocks",
+        "title": "IvorySQL: Report - Lock & Deadlock Dependencies",
+        "category": "IvorySQL"
+      },
+      {
+        "command": "ivorysql.reportSlowQueries",
+        "title": "IvorySQL: Report - Top Slow Queries",
+        "category": "IvorySQL"
+      },
+      {
+        "command": "ivorysql.reportInvalidObjects",
+        "title": "IvorySQL: Report - Invalid / Error Objects",
+        "category": "IvorySQL"
+      },
+      {
+        "command": "ivorysql.reportSessions",
+        "title": "IvorySQL: Report - Session & Client Statistics",
+        "category": "IvorySQL"
+      },
+      {
+        "command": "ivorysql.reportHitRatio",
+        "title": "IvorySQL: Report - Cache & Index Hit Ratio",
+        "category": "IvorySQL"
+      },
+      {
         "command": "ivorysql.showActiveSessions",
         "title": "IvorySQL: Show Active Database Sessions",
         "category": "IvorySQL"
