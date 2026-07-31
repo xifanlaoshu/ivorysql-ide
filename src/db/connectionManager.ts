@@ -58,7 +58,7 @@ export class IvoryDbManager {
     return this.pool !== null;
   }
 
-  public async query(text: string, params?: any[]): Promise<any> {
+  public async query(sql: string, params?: any[]): Promise<any> {
     if (!this.pool) {
       throw new Error('Not connected to IvorySQL database');
     }
@@ -73,11 +73,12 @@ export class IvoryDbManager {
     });
 
     try {
-      // 100% 安全自适应探针：独立隔离每个 SET 指令与按需补全 DBMS_OUTPUT 系统包
+      // 强制每一次底层 Session 查询前开启 Oracle 兼容模式，保证 Package 调用语法正确解析
       try {
         await client.query("SET ivorysql.compatible_mode = 'oracle'");
       } catch (e) {}
 
+      // 100% 安全自适应探针：独立隔离每个 SET 指令与按需补全 DBMS_OUTPUT 系统包
       try {
         await client.query(`
           CREATE OR REPLACE PACKAGE dbms_output IS
@@ -106,7 +107,7 @@ export class IvoryDbManager {
         await client.query("SET search_path = sys, pg_catalog, public");
       } catch (e) {}
 
-      const res = await client.query(text, params);
+      const res = await client.query(sql, params);
       return res;
     } catch (err) {
       throw err;
