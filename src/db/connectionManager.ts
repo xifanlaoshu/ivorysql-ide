@@ -137,12 +137,14 @@ export class IvoryDbManager {
   public async getSchemaPackages(schemaName: string): Promise<string[]> {
     if (!this.pool) return [];
     try {
-      // 对 UNION 字段统一做 ::text 显式类型转换，确保 Oracle 方言模式下 varchar2 与 name 类型完美兼容
+      // 100% 针对 IvorySQL 5.4 实测的终极 Package 检索 SQL (优先查询 pg_catalog.pg_package)
       const sql = `
         SELECT DISTINCT upper(pkg_name) AS name FROM (
-          SELECT name::text AS pkg_name FROM all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
+          SELECT pkgname::text AS pkg_name FROM pg_catalog.pg_package
           UNION ALL
-          SELECT name::text AS pkg_name FROM user_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
+          SELECT name::text AS pkg_name FROM sys.all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
+          UNION ALL
+          SELECT name::text AS pkg_name FROM sys.user_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
           UNION ALL
           SELECT p.proname::text AS pkg_name 
           FROM pg_proc p 
@@ -154,7 +156,7 @@ export class IvoryDbManager {
       return res.rows.map((r: any) => r.name);
     } catch (e) {
       try {
-        const fallbackRes = await this.query(`SELECT DISTINCT upper(name::text) AS name FROM all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')`);
+        const fallbackRes = await this.query(`SELECT DISTINCT upper(pkgname::text) AS name FROM pg_catalog.pg_package`);
         return fallbackRes.rows.map((r: any) => r.name);
       } catch (e2) {
         return [];

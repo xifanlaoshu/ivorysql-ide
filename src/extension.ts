@@ -184,9 +184,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     try {
       const sql = `
-        SELECT 'all_source' AS catalog_table, name::text AS name, type::text AS type, owner::text AS owner FROM all_source WHERE upper(name::text) LIKE '%EMP%'
+        SELECT 'pg_catalog.pg_package' AS catalog_table, pkgname::text AS name, 'PACKAGE' AS type, '' AS owner FROM pg_catalog.pg_package
         UNION ALL
-        SELECT 'user_source' AS catalog_table, name::text AS name, type::text AS type, '' AS owner FROM user_source WHERE upper(name::text) LIKE '%EMP%'
+        SELECT 'sys.all_source' AS catalog_table, name::text AS name, type::text AS type, owner::text AS owner FROM sys.all_source WHERE upper(name::text) LIKE '%EMP%'
+        UNION ALL
+        SELECT 'sys.user_source' AS catalog_table, name::text AS name, type::text AS type, '' AS owner FROM sys.user_source WHERE upper(name::text) LIKE '%EMP%'
         UNION ALL
         SELECT 'pg_proc' AS catalog_table, proname::text AS name, prokind::text AS type, nspname::text AS owner 
         FROM pg_proc 
