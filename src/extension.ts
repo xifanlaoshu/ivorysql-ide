@@ -165,8 +165,8 @@ BEGIN
   DBMS_OUTPUT.PUT_LINE('📦 Target Package: ${pkgName}.${procName}');
   DBMS_OUTPUT.PUT_LINE('==============================================');
 
-  -- 调用包内过程 ("${schemaName}"."${pkgName}".${procName}):
-  "${schemaName}"."${pkgName}".${procName}(
+  -- 调用包内过程 (${pkgName}.${procName}):
+  ${pkgName}.${procName}(
 ${callParams}
   );
 
