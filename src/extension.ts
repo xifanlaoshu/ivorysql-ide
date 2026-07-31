@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const debugHarness = `-- ====================================================================
 -- IvorySQL PL/iSQL Real-time Package Debug & Test Harness: ${pkgName}
--- 提示: 选中下方代码按下 F9 或 Ctrl+Enter 即可调起执行测试
+-- 提示: 选中下方代码按下 F9 即可运行测试，并实时捕获下方高亮调试 Log
 -- ====================================================================
 DECLARE
   -- 声明测试变量
@@ -59,8 +59,15 @@ DECLARE
   v_emp_name VARCHAR2(100) := 'Debug Test User';
   v_salary   NUMBER := 9500;
 BEGIN
+  RAISE NOTICE '==================================================';
+  RAISE NOTICE '🐞 [DEBUG SESSION START] Package: %', '${pkgName}';
+  RAISE NOTICE '🐞 [DEBUG VARS] Emp ID: %, Name: %, Salary: %', v_emp_id, v_emp_name, v_salary;
+  RAISE NOTICE '==================================================';
+
   -- 调用包内过程进行调试测试:
   ${pkgName}.${procName}(p_emp_id => v_emp_id, p_emp_name => v_emp_name, p_salary => v_salary);
+
+  RAISE NOTICE '✅ [DEBUG SESSION FINISHED]';
 END;
 /
 `;

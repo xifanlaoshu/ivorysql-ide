@@ -63,6 +63,15 @@ export class IvoryDbManager {
       throw new Error('Not connected to IvorySQL database');
     }
     const client = await this.pool.connect();
+    
+    // 绑定 notice 实时调试日志监听
+    client.removeAllListeners('notice');
+    client.on('notice', (msg: any) => {
+      const outputChannel = vscode.window.createOutputChannel('IvorySQL Debug Console');
+      outputChannel.show(true);
+      outputChannel.appendLine(`🐞 [IvorySQL NOTICE Log] ${msg.message || msg}`);
+    });
+
     try {
       // 100% 安全自适应探针：独立隔离每个 SET 指令
       try {
