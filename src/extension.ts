@@ -180,22 +180,22 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
 
-      // 创建数据库最新源码的临时磁盘文档 (保持 isDirty = false，关闭不弹误报警告)
+      // 创建数据库最新源码的独立临时磁盘文档 (加入 Schema 与包类型，支持多窗口同时保留，且 isDirty = false 关闭不误弹保存)
       const extName = objectType === 'PACKAGE' ? '.pkh' : (objectType === 'PACKAGE BODY' ? '.pkb' : '.sql');
-      const tempFilePath = path.join(os.tmpdir(), `${objectName}${extName}`);
+      const safeType = objectType.toLowerCase().replace(/\s+/g, '_');
+      const tempFilePath = path.join(os.tmpdir(), `${schemaName}_${objectName}_${safeType}${extName}`);
       fs.writeFileSync(tempFilePath, dbCode, 'utf8');
 
       const dbDoc = await vscode.workspace.openTextDocument(tempFilePath);
 
       // 2. 如果找到了匹配的本地源代码文件，自动调起 VS Code 原生 Diff 差异面板
       if (matchedLocalUri) {
-        const localDoc = await vscode.workspace.openTextDocument(matchedLocalUri);
         const title = `Local (${path.basename(matchedLocalUri.fsPath)}) ↔ DB Live (${objectName} [${objectType}])`;
-        await vscode.commands.executeCommand('vscode.diff', matchedLocalUri, dbDoc.uri, title);
+        await vscode.commands.executeCommand('vscode.diff', matchedLocalUri, dbDoc.uri, title, { preview: false });
         vscode.window.showInformationMessage(`🔍 [Auto-Diff Enabled] 已自动找到本地文件 "${path.basename(matchedLocalUri.fsPath)}"，并与数据库实时 DDL 拉起差异比对！`);
       } else {
-        // 未在本地找到匹配文件，打开数据库源码编辑窗
-        await vscode.window.showTextDocument(dbDoc);
+        // 未在本地找到匹配文件，打开独立的数据库源码编辑窗 (preview: false 确保不被覆盖)
+        await vscode.window.showTextDocument(dbDoc, { preview: false });
         vscode.window.showInformationMessage(`[IvorySQL Source] 未在本地工作区找到匹配的 ${objectName} 文件，已从数据库拉取最新 DDL，您可以直接按 F8 覆盖编译。`);
       }
     } catch (err: any) {
