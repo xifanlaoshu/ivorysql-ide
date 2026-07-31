@@ -16,14 +16,17 @@
 - 侧边栏四层树状架构：Connection -> Schema -> Object Category (Packages, Procedures, Functions, Tables, Views, Sequences) -> Object Node.
 - 物理级外键关联 (`pg_catalog.pg_package` 与 `pg_catalog.pg_package_body`)，实现真正的 Schema 隔离。
 
-### 2.3 单步断点调试与变量监控 (Step Debugging & Variable Watch)
-- **技术原理**：
-  - 基于 PostgreSQL / IvorySQL 服务端 **`pldbgapi` (PL/pgSQL Debugger API)** 物理调试扩展。
-  - VS Code 端通过注册 **`DebugAdapterDescriptorFactory`** 实现 **DAP (Debug Adapter Protocol)** 协议对接。
-- **调试特性支持**：
-  - **物理行断点 (Line Breakpoints)**：在 `.pkh` / `.pkb` 代码行左侧打红点断点。
-  * **单步控制 (Step Control)**：`F10` 单步步过 (Step Over)、`F11` 单步步入 (Step Into)、`Shift+F11` 单步步出 (Step Out)。
-  * **变量监视 (Variables & Watch Window)**：在 VS Code 调试侧边栏的 `Variables` 窗口实时监视局部变量内存值。
+### 2.3 IvorySQL PL Debugger 官方物理调试器指南 (IvorySQL PL Debugger Specification)
+- **调试器体系**：
+  - IvorySQL 内核基于 PostgreSQL 扩展架构支持 **`pldbgapi` (PL/iSQL Debugger API)**。
+- **双通道物理控制模型 (Dual-Connection Debugging Architecture)**：
+  1. **Target Session (目标执行会话)**：运行待调试的 Package 过程或函数，由 `pldbg_wait_for_breakpoint` 挂起。
+  2. **Controller Session (调试控制会话)**：IDE 通过调试 API 发送控制指令：
+     - `pldbg_step_over()`：单步步过 (`F10`)
+     - `pldbg_step_into()`：单步步入 (`F11`)
+     - `pldbg_get_stack()`：获取堆栈与变量列表 (Watch Window)
+- **IDE 快捷集成**：
+  - 支持通过 **`🐞 Debug Package`** 生成测试脚手架窗口，并在编辑器中发起会话挂起与实时 `DBMS_OUTPUT` 日志抓取。
 
 ---
 
