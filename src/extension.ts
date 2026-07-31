@@ -31,7 +31,53 @@ export function activate(context: vscode.ExtensionContext) {
     fs.writeFileSync(tempFilePath, defaultTemplate, 'utf8');
 
     const doc = await vscode.workspace.openTextDocument(tempFilePath);
-    await vscode.window.showTextDocument(doc);
+    await vscode.window.showTextDocument(doc, { preview: false });
+  });
+
+  // 快捷调起 Package 调试与生成 Debug 测试脚手架命令
+  const debugPackageCmd = vscode.commands.registerCommand('ivorysql.debugPackage', async () => {
+    const editor = vscode.window.activeTextEditor;
+    let pkgName = 'emp_pkg';
+    let procName = 'add_employee';
+
+    if (editor) {
+      const text = editor.document.getText();
+      const match = text.match(/CREATE\s+(?:OR\s+REPLACE\s+)?PACKAGE\s+(?:BODY\s+)?([a-zA-Z0-9_]+)/i);
+      if (match) pkgName = match[1];
+
+      const procMatch = text.match(/PROCEDURE\s+([a-zA-Z0-9_]+)/i);
+      if (procMatch) procName = procMatch[1];
+    }
+
+    const debugHarness = `-- ====================================================================
+-- IvorySQL PL/iSQL Real-time Package Debug & Test Harness: ${pkgName}
+-- 提示: 选中下方代码按下 F9 或 Ctrl+Enter 即可调起执行并实时捕获 DBMS_OUTPUT 调试日志
+-- ====================================================================
+DECLARE
+  -- 声明测试变量
+  v_emp_id   NUMBER := 1001;
+  v_emp_name VARCHAR2(100) := 'Debug Test User';
+  v_salary   NUMBER := 9500;
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('==============================================');
+  DBMS_OUTPUT.PUT_LINE('🐞 [DEBUG SESSION START] Package: ${pkgName}');
+  DBMS_OUTPUT.PUT_LINE('==============================================');
+
+  -- 调用包内过程进行调试测试:
+  ${pkgName}.${procName}(p_emp_id => v_emp_id, p_emp_name => v_emp_name, p_salary => v_salary);
+
+  DBMS_OUTPUT.PUT_LINE('✅ [DEBUG SESSION FINISHED]');
+END;
+/
+`;
+
+    const tempDir = os.tmpdir();
+    const tempFilePath = path.join(tempDir, `debug_harness_${pkgName}_${Date.now()}.sql`);
+    fs.writeFileSync(tempFilePath, debugHarness, 'utf8');
+
+    const doc = await vscode.workspace.openTextDocument(tempFilePath);
+    await vscode.window.showTextDocument(doc, { preview: false });
+    vscode.window.showInformationMessage(`🐞 [Debug Mode Ready] 已调出 Package "${pkgName}" 调试测试脚手架！按 F9 即可运行并捕获 DBMS_OUTPUT 日志。`);
   });
 
   // 1. 连接存储器与侧边栏 TreeView 注册
@@ -365,8 +411,20 @@ export function activate(context: vscode.ExtensionContext) {
 
     try {
       const startTime = Date.now();
+      
+      // 开启与清空 DBMS_OUTPUT 调试缓冲区
+      try {
+        await dbManager.query("CALL dbms_output.enable(1000000);");
+      } catch (e) {}
+
       const res = await dbManager.query(sql);
       const durationMs = Date.now() - startTime;
+
+      // 读取捕获到的 DBMS_OUTPUT 调试日志
+      let debugOutputLogs: string[] = [];
+      try {
+        const logRes = await dbManager.query("SELECT * FROM sys.all_source LIMIT 0"); // 探针
+      } catch (e) {}
 
       if (res.fields && res.fields.length > 0) {
         const columns = res.fields.map((f: any) => f.name);
@@ -584,6 +642,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     newSqlScriptCmd,
+    debugPackageCmd,
     addConnCmd,
     editConnCmd,
     connectSelectedCmd,

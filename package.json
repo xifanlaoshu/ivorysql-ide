@@ -143,6 +143,12 @@
         "category": "IvorySQL"
       },
       {
+        "command": "ivorysql.debugPackage",
+        "title": "IvorySQL: Debug / Test Current Package (调起 Package 调试脚手架)",
+        "category": "IvorySQL",
+        "icon": "$(bug)"
+      },
+      {
         "command": "ivorysql.dropObject",
         "title": "Drop / Delete Object from DB",
         "category": "IvorySQL",
@@ -198,6 +204,28 @@
       }
     ],
     "menus": {
+      "editor/context": [
+        {
+          "command": "ivorysql.deployToDb",
+          "when": "editorLangId == plisql || resourceExtname == .pkh || resourceExtname == .pkb",
+          "group": "1_ivorysql@1"
+        },
+        {
+          "command": "ivorysql.debugPackage",
+          "when": "editorLangId == plisql || resourceExtname == .pkh || resourceExtname == .pkb",
+          "group": "1_ivorysql@2"
+        },
+        {
+          "command": "ivorysql.executeQuery",
+          "when": "editorLangId == plisql || resourceExtname == .pkh || resourceExtname == .pkb",
+          "group": "1_ivorysql@3"
+        },
+        {
+          "command": "ivorysql.switchHeaderBody",
+          "when": "editorLangId == plisql || resourceExtname == .pkh || resourceExtname == .pkb",
+          "group": "1_ivorysql@4"
+        }
+      ],
       "view/title": [
         {
           "command": "ivorysql.newSqlScript",
