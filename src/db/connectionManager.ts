@@ -137,24 +137,24 @@ export class IvoryDbManager {
   public async getSchemaPackages(schemaName: string): Promise<string[]> {
     if (!this.pool) return [];
     try {
-      // 使用所有 PostgreSQL / IvorySQL 版本均绝对存在的 100% 稳妥字典查询 (排除不存在的 sys_package)
+      // 对 UNION 字段统一做 ::text 显式类型转换，确保 Oracle 方言模式下 varchar2 与 name 类型完美兼容
       const sql = `
-        SELECT DISTINCT upper(name) AS name FROM (
-          SELECT name FROM all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
+        SELECT DISTINCT upper(pkg_name) AS name FROM (
+          SELECT name::text AS pkg_name FROM all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
           UNION ALL
-          SELECT name FROM user_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
+          SELECT name::text AS pkg_name FROM user_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
           UNION ALL
-          SELECT p.proname AS name 
+          SELECT p.proname::text AS pkg_name 
           FROM pg_proc p 
           JOIN pg_namespace n ON p.pronamespace = n.oid 
           WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname != 'information_schema'
-        ) combined_pkgs WHERE name IS NOT NULL AND upper(name) NOT LIKE 'PG_%' AND upper(name) NOT LIKE 'SYS_%' ORDER BY name
+        ) combined_pkgs WHERE pkg_name IS NOT NULL AND upper(pkg_name) NOT LIKE 'PG_%' AND upper(pkg_name) NOT LIKE 'SYS_%' ORDER BY name
       `;
       const res = await this.query(sql);
       return res.rows.map((r: any) => r.name);
     } catch (e) {
       try {
-        const fallbackRes = await this.query(`SELECT DISTINCT upper(name) AS name FROM all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')`);
+        const fallbackRes = await this.query(`SELECT DISTINCT upper(name::text) AS name FROM all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')`);
         return fallbackRes.rows.map((r: any) => r.name);
       } catch (e2) {
         return [];

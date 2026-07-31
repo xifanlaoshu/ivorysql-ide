@@ -184,14 +184,14 @@ export function activate(context: vscode.ExtensionContext) {
 
     try {
       const sql = `
-        SELECT 'all_source' AS catalog_table, name, type, owner FROM all_source WHERE upper(name) LIKE '%EMP%'
+        SELECT 'all_source' AS catalog_table, name::text AS name, type::text AS type, owner::text AS owner FROM all_source WHERE upper(name::text) LIKE '%EMP%'
         UNION ALL
-        SELECT 'user_source' AS catalog_table, name, type, '' AS owner FROM user_source WHERE upper(name) LIKE '%EMP%'
+        SELECT 'user_source' AS catalog_table, name::text AS name, type::text AS type, '' AS owner FROM user_source WHERE upper(name::text) LIKE '%EMP%'
         UNION ALL
-        SELECT 'pg_proc' AS catalog_table, proname AS name, prokind::text AS type, nspname AS owner 
+        SELECT 'pg_proc' AS catalog_table, proname::text AS name, prokind::text AS type, nspname::text AS owner 
         FROM pg_proc 
         JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid 
-        WHERE upper(proname) LIKE '%EMP%'
+        WHERE upper(proname::text) LIKE '%EMP%'
       `;
       const res = await dbManager.query(sql);
       if (res.rows.length === 0) {
