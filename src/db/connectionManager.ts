@@ -65,17 +65,17 @@ export class IvoryDbManager {
     }
     const client = await this.pool.connect();
     try {
-      // 尝试自适应静默设置 IvorySQL Oracle 模式与 sys 架构路径；若数据库不支持 db_dialect，则自动平滑降级忽略
+      // 尝试自适应设置 IvorySQL 5.x 官方 Oracle 方言模式与 sys 系统架构路径
       try {
-        await client.query("SET db_dialect = 'oracle'");
+        await client.query("SET ivorysql.compatible_mode = 'oracle'");
       } catch (e) {
-        // 忽视不支持 db_dialect 参数的日志，保持主 SQL 顺畅执行
+        try {
+          await client.query("SET db_dialect = 'oracle'");
+        } catch (e2) {}
       }
       try {
         await client.query("SET search_path = sys, pg_catalog, public");
-      } catch (e) {
-        // 忽视 schema 探针失败日志
-      }
+      } catch (e) {}
 
       const res = await client.query(text, params);
       return res;

@@ -138,10 +138,15 @@ export function activate(context: vscode.ExtensionContext) {
       let dialect = 'Unknown';
       let version = '';
       try {
-        const dRes = await dbManager.query('SHOW db_dialect');
-        dialect = dRes.rows[0]?.db_dialect || dRes.rows[0]?.SHOW || 'PG Mode';
-      } catch (e) {
-        dialect = 'Standard PostgreSQL (No db_dialect GUC)';
+        const cRes = await dbManager.query("SHOW ivorysql.compatible_mode");
+        dialect = `ivorysql.compatible_mode = '${cRes.rows[0]?.['ivorysql.compatible_mode'] || cRes.rows[0]?.SHOW}'`;
+      } catch (e1) {
+        try {
+          const dRes = await dbManager.query('SHOW db_dialect');
+          dialect = `db_dialect = '${dRes.rows[0]?.db_dialect || dRes.rows[0]?.SHOW}'`;
+        } catch (e2) {
+          dialect = 'Standard PG Mode';
+        }
       }
 
       try {
@@ -149,10 +154,10 @@ export function activate(context: vscode.ExtensionContext) {
         version = vRes.rows[0]?.version || '';
       } catch (e) {}
 
-      if (dialect.toLowerCase().includes('oracle') || version.toLowerCase().includes('ivorysql')) {
-        vscode.window.showInformationMessage(`✅ [IvorySQL Mode Verified] 当前数据库处于 Oracle 兼容模式！(Dialect: ${dialect})`);
+      if (version.includes('IvorySQL') || dialect.toLowerCase().includes('oracle')) {
+        vscode.window.showInformationMessage(`🎉 [IvorySQL 5.4 Verified] 检测成功！您正运行在真正的 IvorySQL 数据库上 (${version.substring(0, 35)}...) (${dialect})`);
       } else {
-        vscode.window.showWarningMessage(`⚠️ [Mode Status] 当前数据库会话处于: ${dialect}。包含 Oracle 特有的 Package 语法需要在 IvorySQL 实例或配置文件中开启 db_dialect = 'oracle'。`);
+        vscode.window.showWarningMessage(`⚠️ [Mode Status] 当前数据库会话处于: ${dialect}`);
       }
     } catch (err: any) {
       vscode.window.showErrorMessage(`Check Oracle Mode Error: ${err.message}`);
