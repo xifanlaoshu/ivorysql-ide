@@ -137,27 +137,31 @@ export class IvoryDbManager {
   public async getSchemaPackages(schemaName: string): Promise<string[]> {
     if (!this.pool) return [];
     try {
-      // 方式 1: 查询 Oracle 兼容视图 all_source / user_source
-      const res = await this.query(
-        `SELECT DISTINCT name FROM all_source WHERE (upper(owner) = upper($1) OR owner = $1) AND type IN ('PACKAGE', 'PACKAGE BODY') ORDER BY name`,
-        [schemaName]
-      );
-      if (res.rows && res.rows.length > 0) {
-        return res.rows.map((r: any) => r.name);
-      }
-
-      // 方式 2: 降级查询 sys/pg_catalog 中包头包体记录
-      const pgRes = await this.query(
-        `SELECT DISTINCT p.proname as name
-         FROM pg_proc p 
-         JOIN pg_namespace n ON p.pronamespace = n.oid 
-         WHERE upper(n.nspname) = upper($1) 
-         ORDER BY name`,
-        [schemaName]
-      );
-      return pgRes.rows.map((r: any) => r.name);
+      // 100% 全量联合检索 IvorySQL 5.4 中的 Package 包头包体字典记录
+      const sql = `
+        SELECT DISTINCT upper(name) AS name FROM (
+          SELECT name FROM all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
+          UNION ALL
+          SELECT name FROM user_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')
+          UNION ALL
+          SELECT pkgname AS name FROM sys_package
+          UNION ALL
+          SELECT p.proname AS name 
+          FROM pg_proc p 
+          JOIN pg_namespace n ON p.pronamespace = n.oid 
+          WHERE upper(n.nspname) = upper($1)
+        ) combined_pkgs WHERE name IS NOT NULL ORDER BY name
+      `;
+      const res = await this.query(sql, [schemaName]);
+      return res.rows.map((r: any) => r.name);
     } catch (e) {
-      return [];
+      // 容错降级查询
+      try {
+        const fallbackRes = await this.query(`SELECT DISTINCT upper(name) AS name FROM all_source WHERE type IN ('PACKAGE', 'PACKAGE BODY')`);
+        return fallbackRes.rows.map((r: any) => r.name);
+      } catch (e2) {
+        return [];
+      }
     }
   }
 
