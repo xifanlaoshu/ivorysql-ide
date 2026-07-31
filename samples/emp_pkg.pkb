@@ -41,4 +41,11 @@ CREATE OR REPLACE PACKAGE BODY emp_pkg IS
     DBMS_OUTPUT.PUT_LINE('Employee ID ' || p_emp_id || ' Salary is: ' || v_salary);
   END print_employee_info;
 
+  PROCEDURE get_employee_list(
+    p_cursor OUT SYS_REFCURSOR
+  ) IS
+  BEGIN
+    OPEN p_cursor FOR SELECT * FROM employees;
+  END get_employee_list;
+
 END emp_pkg;
