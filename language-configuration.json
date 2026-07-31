@@ -1,0 +1,36 @@
+{
+  "comments": {
+    "lineComment": "--",
+    "blockComment": [ "/*", "*/" ]
+  },
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "autoClosingPairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "'", "close": "'", "notIn": ["string", "comment"] },
+    { "open": "\"", "close": "\"", "notIn": ["string"] },
+    { "open": "/*", "close": "*/", "notIn": ["string"] }
+  ],
+  "surroundingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["'", "'"],
+    ["\"", "\""]
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*--#region",
+      "end": "^\\s*--#endregion"
+    }
+  },
+  "indentationRules": {
+    "increaseIndentPattern": "(?i)^\\s*(BEGIN|IF|ELSIF|ELSE|LOOP|WHILE|FOR|PACKAGE(\\s+BODY)?|PROCEDURE|FUNCTION|DECLARE|CASE|WHEN)\\b",
+    "decreaseIndentPattern": "(?i)^\\s*(END|ELSIF|ELSE|WHEN)\\b"
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "PL/iSQL",
+  "scopeName": "source.plisql",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#package-declaration" },
+    { "include": "#keywords" },
+    { "include": "#data-types" },
+    { "include": "#builtin-packages" },
+    { "include": "#operators" },
+    { "include": "#numbers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.plisql",
+          "match": "--.*$"
+        },
+        {
+          "name": "comment.block.plisql",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.plisql",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.plisql",
+              "match": "''"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.double.plisql",
+          "begin": "\"",
+          "end": "\""
+        }
+      ]
+    },
+    "package-declaration": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(CREATE(\\s+OR\\s+REPLACE)?)\\s+(PACKAGE(\\s+BODY)?)\\s+([a-zA-Z0-9_\"\\.]+)",
+          "captures": {
+            "1": { "name": "keyword.other.ddl.plisql" },
+            "3": { "name": "keyword.control.package.plisql" },
+            "5": { "name": "entity.name.type.package.plisql" }
+          }
+        },
+        {
+          "match": "(?i)\\b(PROCEDURE|FUNCTION)\\s+([a-zA-Z0-9_\"\\.]+)",
+          "captures": {
+            "1": { "name": "keyword.other.routine.plisql" },
+            "2": { "name": "entity.name.function.plisql" }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.plisql",
+          "match": "(?i)\\b(BEGIN|END|IF|THEN|ELSIF|ELSE|CASE|WHEN|LOOP|WHILE|FOR|IN|REVERSE|EXIT|CONTINUE|GOTO|RETURN|EXCEPTION|RAISE|PRAGMA|DECLARE|IS|AS|AUTHID|DEFINER|CURRENT_USER)\\b"
+        },
+        {
+          "name": "keyword.other.sql.plisql",
+          "match": "(?i)\\b(SELECT|INSERT|UPDATE|DELETE|MERGE|INTO|FROM|WHERE|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|JOIN|LEFT|RIGHT|FULL|INNER|OUTER|ON|UNION|ALL|INTERSECT|MINUS|BULK|COLLECT|FORALL|EXECUTE|IMMEDIATE)\\b"
+        },
+        {
+          "name": "keyword.other.oracle-compat.plisql",
+          "match": "(?i)\\b(RECORD|TABLE|VARRAY|INDEX|BY|CURSOR|OPEN|FETCH|CLOSE|ROWTYPE|TYPE|CONSTANT|DEFAULT|NULL|OR|AND|NOT|LIKE|IS|EXISTS|BETWEEN|ROWNUM|SYSDATE|SYSTIMESTAMP|DUAL)\\b"
+        }
+      ]
+    },
+    "data-types": {
+      "patterns": [
+        {
+          "name": "storage.type.plisql",
+          "match": "(?i)\\b(VARCHAR2|NVARCHAR2|VARCHAR|CHAR|NUMBER|INTEGER|INT|FLOAT|PLS_INTEGER|BINARY_INTEGER|BOOLEAN|DATE|TIMESTAMP|CLOB|BLOB|RAW|LONG|ROWID|UROWID|REF\\s+CURSOR|VOID|BIGINT|SMALLINT|NUMERIC|TEXT|JSON|JSONB)\\b"
+        },
+        {
+          "name": "storage.modifier.plisql",
+          "match": "(?i)%TYPE|%ROWTYPE|%FOUND|%NOTFOUND|%ISOPEN|%ROWCOUNT"
+        }
+      ]
+    },
+    "builtin-packages": {
+      "patterns": [
+        {
+          "name": "support.class.builtin.oracle.plisql",
+          "match": "(?i)\\b(DBMS_OUTPUT|DBMS_SQL|UTL_FILE|UTL_HTTP|DBMS_JOB|DBMS_SCHEDULER|DBMS_LOCK|DBMS_METADATA|DBMS_LOB)\\.([a-zA-Z0-9_]+)",
+          "captures": {
+            "1": { "name": "support.class.builtin.plisql" },
+            "2": { "name": "support.function.builtin.plisql" }
+          }
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.assignment.plisql",
+          "match": ":="
+        },
+        {
+          "name": "keyword.operator.comparison.plisql",
+          "match": "=|!=|<>|<|>|<=|>="
+        },
+        {
+          "name": "keyword.operator.concatenation.plisql",
+          "match": "\\|\\|"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.plisql",
+          "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+        }
+      ]
+    }
+  }
+}

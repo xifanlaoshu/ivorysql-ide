@@ -1,0 +1,147 @@
+{
+  "name": "ivorysql-ide",
+  "displayName": "IvorySQL PL/iSQL Developer IDE",
+  "description": "PL/iSQL Developer extension for IvorySQL database (Oracle mode) - Highlighting, Intellisense, Formatting, DAP Debugging & Git Version Sync",
+  "version": "0.1.0",
+  "publisher": "ivorysql-community",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters",
+    "Debuggers"
+  ],
+  "activationEvents": [
+    "onLanguage:plisql",
+    "onCommand:ivorysql.connect",
+    "onCommand:ivorysql.deployToDb"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "plisql",
+        "aliases": [
+          "PL/iSQL",
+          "plisql",
+          "IvorySQL PL/iSQL"
+        ],
+        "extensions": [
+          ".pkh",
+          ".pkb",
+          ".pls",
+          ".plsql",
+          ".sql"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "plisql",
+        "scopeName": "source.plisql",
+        "path": "./syntaxes/plisql.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "ivorysql.connect",
+        "title": "IvorySQL: Connect to Database",
+        "category": "IvorySQL"
+      },
+      {
+        "command": "ivorysql.disconnect",
+        "title": "IvorySQL: Disconnect from Database",
+        "category": "IvorySQL"
+      },
+      {
+        "command": "ivorysql.syncDiff",
+        "title": "IvorySQL: Compare File with Database Source",
+        "category": "IvorySQL"
+      },
+      {
+        "command": "ivorysql.deployToDb",
+        "title": "IvorySQL: Deploy/Compile to Database (Git First)",
+        "category": "IvorySQL"
+      },
+      {
+        "command": "ivorysql.switchHeaderBody",
+        "title": "IvorySQL: Switch Package Header / Body",
+        "category": "IvorySQL"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "ivorysql.switchHeaderBody",
+        "key": "alt+o",
+        "mac": "cmd+option+o",
+        "when": "editorTextFocus && editorLangId == plisql"
+      },
+      {
+        "command": "ivorysql.deployToDb",
+        "key": "f8",
+        "when": "editorTextFocus && editorLangId == plisql"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "IvorySQL Configuration",
+      "properties": {
+        "ivorysql.connection.host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "IvorySQL database host"
+        },
+        "ivorysql.connection.port": {
+          "type": "number",
+          "default": 5432,
+          "description": "IvorySQL database port"
+        },
+        "ivorysql.connection.database": {
+          "type": "string",
+          "default": "ivorysql",
+          "description": "IvorySQL database name"
+        },
+        "ivorysql.connection.user": {
+          "type": "string",
+          "default": "ivorysql",
+          "description": "IvorySQL database user"
+        },
+        "ivorysql.connection.password": {
+          "type": "string",
+          "default": "",
+          "description": "IvorySQL database password"
+        },
+        "ivorysql.versionControl.strictGitCheck": {
+          "type": "boolean",
+          "default": true,
+          "description": "Block compilation if database source differs from local Git repository"
+        },
+        "ivorysql.versionControl.autoCommitBeforeDeploy": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically commit uncommitted local changes before compiling/deploying to DB"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/pg": "^8.11.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "pg": "^8.11.0",
+    "simple-git": "^3.19.0",
+    "vscode-languageclient": "^8.1.0",
+    "vscode-languageserver": "^8.1.0"
+  }
+}
