@@ -12,6 +12,14 @@ export interface DbConfig {
 export class IvoryDbManager {
   private pool: Pool | null = null;
   private currentConfig: DbConfig | null = null;
+  private debugOutputChannel: vscode.OutputChannel | null = null;
+
+  private getDebugOutputChannel(): vscode.OutputChannel {
+    if (!this.debugOutputChannel) {
+      this.debugOutputChannel = vscode.window.createOutputChannel('IvorySQL Debug Console');
+    }
+    return this.debugOutputChannel;
+  }
 
   public static getInstance(): IvoryDbManager {
     if (!IvoryDbManager.instance) {
@@ -64,12 +72,12 @@ export class IvoryDbManager {
     }
     const client = await this.pool.connect();
     
-    // 绑定 notice 实时调试日志监听
+    // 绑定 notice 实时调试日志单例监听，多行连续追加
     client.removeAllListeners('notice');
     client.on('notice', (msg: any) => {
-      const outputChannel = vscode.window.createOutputChannel('IvorySQL Debug Console');
-      outputChannel.show(true);
-      outputChannel.appendLine(`🐞 [IvorySQL NOTICE Log] ${msg.message || msg}`);
+      const channel = this.getDebugOutputChannel();
+      channel.show(true);
+      channel.appendLine(msg.message || msg);
     });
 
     try {
