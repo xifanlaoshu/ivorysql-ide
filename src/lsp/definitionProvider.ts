@@ -5,18 +5,26 @@ import * as os from 'os';
 import { IvoryDbManager } from '../db/connectionManager';
 
 export class PlIsqlDefinitionProvider implements vscode.DefinitionProvider {
+  private outputChannel: vscode.OutputChannel;
+
+  constructor() {
+    this.outputChannel = vscode.window.createOutputChannel('IvorySQL Definition Tracker');
+  }
+
   public async provideDefinition(
     document: vscode.TextDocument,
     position: vscode.Position,
     token: vscode.CancellationToken
   ): Promise<vscode.Definition | vscode.LocationLink[] | undefined> {
     try {
-      // 1. 获取光标所在位置的单词
+      // 1. 获取光标所在位置的单词 (匹配标准标识符)
       const wordRange = document.getWordRangeAtPosition(position, /[a-zA-Z0-9_]+/);
       if (!wordRange) return undefined;
 
       const wordAtCursor = document.getText(wordRange).trim();
       if (!wordAtCursor || wordAtCursor.length < 2) return undefined;
+
+      this.outputChannel.appendLine(`[F12 Definition Triggered] Word: "${wordAtCursor}", File: ${document.fileName}`);
 
       // 忽视常规通用关键字
       const keywords = ['BEGIN', 'END', 'DECLARE', 'PROCEDURE', 'FUNCTION', 'PACKAGE', 'BODY', 'VARCHAR2', 'NUMBER', 'IS', 'AS', 'IF', 'THEN', 'SET', 'SELECT', 'FROM', 'WHERE'];
@@ -37,6 +45,8 @@ export class PlIsqlDefinitionProvider implements vscode.DefinitionProvider {
         targetPkgName = parts[parts.length - 2];
       }
 
+      this.outputChannel.appendLine(`  -> Analyzed Target Package: "${targetPkgName}", Target Procedure: "${targetProcName}"`);
+
       // 3. 【策略 A】：若提取出特定包名 (如 admin_user_pkg)，搜索包含该包名的源代码文件
       if (targetPkgName) {
         const cleanPkgName = targetPkgName.toLowerCase();
@@ -51,7 +61,10 @@ export class PlIsqlDefinitionProvider implements vscode.DefinitionProvider {
             const line = targetLines[i];
             const procRegex = new RegExp(`(?:PROCEDURE|FUNCTION)\\s+${targetProcName}\\b`, 'i');
             if (procRegex.test(line)) {
-              return new vscode.Location(file, new vscode.Position(i, line.search(new RegExp(targetProcName, 'i'))));
+              const startCol = Math.max(0, line.search(new RegExp(targetProcName, 'i')));
+              const range = new vscode.Range(i, startCol, i, startCol + targetProcName.length);
+              this.outputChannel.appendLine(`  -> Matched via Strategy A in file: ${file.fsPath}:${i + 1}`);
+              return new vscode.Location(file, range);
             }
           }
         }
@@ -69,7 +82,10 @@ export class PlIsqlDefinitionProvider implements vscode.DefinitionProvider {
             const line = targetLines[i];
             const procRegex = new RegExp(`(?:PROCEDURE|FUNCTION)\\s+${targetProcName}\\b`, 'i');
             if (procRegex.test(line)) {
-              return new vscode.Location(file, new vscode.Position(i, line.search(new RegExp(targetProcName, 'i'))));
+              const startCol = Math.max(0, line.search(new RegExp(targetProcName, 'i')));
+              const range = new vscode.Range(i, startCol, i, startCol + targetProcName.length);
+              this.outputChannel.appendLine(`  -> Matched via Strategy B in file: ${file.fsPath}:${i + 1}`);
+              return new vscode.Location(file, range);
             }
           }
         }
@@ -83,11 +99,14 @@ export class PlIsqlDefinitionProvider implements vscode.DefinitionProvider {
         const line = lines[i];
         const procRegex = new RegExp(`(?:PROCEDURE|FUNCTION|PACKAGE(?:\\s+BODY)?)\\s+${targetProcName}\\b`, 'i');
         if (procRegex.test(line)) {
-          return new vscode.Location(document.uri, new vscode.Position(i, line.search(new RegExp(targetProcName, 'i'))));
+          const startCol = Math.max(0, line.search(new RegExp(targetProcName, 'i')));
+          const range = new vscode.Range(i, startCol, i, startCol + targetProcName.length);
+          this.outputChannel.appendLine(`  -> Matched via Strategy C in current document:${i + 1}`);
+          return new vscode.Location(document.uri, range);
         }
       }
 
-      // 6. 【策略 D】：同名包头/包体关联关联导航 (.pkh ↔ .pkb)
+      // 6. 【策略 D】：同名包头/包体关联导航 (.pkh ↔ .pkb)
       const ext = path.extname(document.fileName).toLowerCase();
       let targetExt = '';
       if (ext === '.pkh') targetExt = '.pkb';
@@ -105,7 +124,10 @@ export class PlIsqlDefinitionProvider implements vscode.DefinitionProvider {
             const line = targetLines[i];
             const procRegex = new RegExp(`(?:PROCEDURE|FUNCTION)\\s+${targetProcName}\\b`, 'i');
             if (procRegex.test(line)) {
-              return new vscode.Location(targetUri, new vscode.Position(i, line.search(new RegExp(targetProcName, 'i'))));
+              const startCol = Math.max(0, line.search(new RegExp(targetProcName, 'i')));
+              const range = new vscode.Range(i, startCol, i, startCol + targetProcName.length);
+              this.outputChannel.appendLine(`  -> Matched via Strategy D in file: ${targetFilePath}:${i + 1}`);
+              return new vscode.Location(targetUri, range);
             }
           }
         }
@@ -132,10 +154,13 @@ export class PlIsqlDefinitionProvider implements vscode.DefinitionProvider {
                 const line = liveLines[i];
                 const procRegex = new RegExp(`(?:PROCEDURE|FUNCTION)\\s+${targetProcName}\\b`, 'i');
                 if (procRegex.test(line)) {
-                  return new vscode.Location(liveUri, new vscode.Position(i, line.search(new RegExp(targetProcName, 'i'))));
+                  const startCol = Math.max(0, line.search(new RegExp(targetProcName, 'i')));
+                  const range = new vscode.Range(i, startCol, i, startCol + targetProcName.length);
+                  this.outputChannel.appendLine(`  -> Matched via Strategy E (Live DB DDL): ${tempFilePath}:${i + 1}`);
+                  return new vscode.Location(liveUri, range);
                 }
               }
-              return new vscode.Location(liveUri, new vscode.Position(0, 0));
+              return new vscode.Location(liveUri, new vscode.Range(0, 0, 0, 0));
             }
           } catch(e) {}
         }
