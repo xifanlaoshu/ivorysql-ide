@@ -182,13 +182,14 @@ END;
     vscode.window.showInformationMessage(`🐞 [Debug Mode Ready] 已调出 Package "${pkgName}" 调试测试脚手架！按 F9 即可运行并捕获 DBMS_OUTPUT 日志。`);
   });
 
-  // 注册 PL/iSQL 跳转到定义提供器 (F12 Go to Definition)
+  // 注册 PL/iSQL 全场景跳转到定义提供器 (F12 Go to Definition)
   const defProvider = new PlIsqlDefinitionProvider();
   const selector: vscode.DocumentSelector = [
+    { scheme: 'file' },
+    { scheme: 'untitled' },
     { language: 'plisql' },
-    { pattern: '**/*.pkh' },
-    { pattern: '**/*.pkb' },
-    { pattern: '**/*.sql' }
+    { language: 'sql' },
+    { language: 'oracle' }
   ];
   context.subscriptions.push(vscode.languages.registerDefinitionProvider(selector, defProvider));
 
